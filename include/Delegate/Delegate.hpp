@@ -184,8 +184,51 @@ namespace axl
         }
 
     public:
+        template<typename F>
+        void operator=(F&& function) noexcept
+        {
+            if constexpr (std::is_pointer_v<F>)
+                assign(function);
+            else
+                assign(detail::retrospective_cast(std::forward<F>(function)));
+        }
+
         template<typename Ret, typename... Args>
-        void assign(std::function<Ret (Args...)> function) noexcept
+        void operator=(std::function<Ret (Args...)>&& function) noexcept
+        {
+            assign(std::forward<decltype(function)>(function));
+        }
+
+        template<typename Ret = void, typename... Args>
+        Ret operator ()(Args&&... args) const
+        {
+            constexpr auto sigHash = detail::hashFunctionSignature<Ret, std::decay_t<Args>...>();
+
+            if (_handle == nullptr)
+                throw std::bad_function_call();
+
+            if (sigHash != _hashedSignature)
+                throw BadDelegateArguments(detail::typeName<Ret (*)(Args...)>());
+
+            // Add rvalues to map correctly to the functor expected arguments
+            auto f = reinterpret_cast<Ret (*)(void*, std::add_rvalue_reference_t<Args>...)>(_functor);
+            return f(_handle, std::forward<Args>(args)...);
+        }
+
+    public:
+        template<typename Ret, typename... Args>
+        Ret call(Args&&... args) const
+        {
+            return this->operator()<Ret>(std::forward<Args>(args)...);
+        }
+
+    public:
+        auto type()   const { return _hashedSignature; }
+        auto target() const { return _handle;          }
+
+    private:
+        template<typename Ret, typename... Args>
+        void assign(std::function<Ret (Args...)>&& function) noexcept
         {
             if (auto target = function.target<Ret (*)(Args...)>(); target)
                 assign(*target);
@@ -197,7 +240,7 @@ namespace axl
             if (function)
             {
                 constexpr auto sigHash = detail::hashFunctionSignature<Ret, std::decay_t<Args>...>();
-            
+
                 if (_hashedSignature == 0)
                     _hashedSignature = sigHash;
                 else if (sigHash != _hashedSignature)
@@ -219,33 +262,6 @@ namespace axl
                 _handle = function;
             }
         }
-
-    public:
-        template<typename Ret, typename... Args>
-        Ret call(Args&&... args) const
-        {
-            return this->operator()<Ret>(std::forward<Args>(args)...);
-        }
-
-        template<typename Ret = void, typename... Args>
-        Ret operator ()(Args&&... args) const
-        {
-            constexpr auto sigHash = detail::hashFunctionSignature<Ret, std::decay_t<Args>...>();
-
-            if (_handle == nullptr)
-                throw std::bad_function_call();
-            
-            if (sigHash != _hashedSignature)
-                throw BadDelegateArguments(detail::typeName<Ret (*)(Args...)>());
-
-            // Add rvalues to map correctly to the functor expected arguments
-            auto f = reinterpret_cast<Ret (*)(void*, std::add_rvalue_reference_t<Args>...)>(_functor);
-            return f(_handle, std::forward<Args>(args)...);
-        }
-
-    public:
-        auto type()   const { return _hashedSignature; }
-        auto target() const { return _handle;          }
 
     private:
         void*         _functor         = nullptr;
