@@ -11,8 +11,7 @@ namespace axl
         #define HASH_DEFAULT_PRIME_NUMBER 73
 
         template<std::size_t N>
-        [[nodiscard]] constexpr std::uint32_t hash(std::uint32_t prime, const char (&s)[N],
-                                                   std::size_t len = N - 1) noexcept
+        [[nodiscard]] constexpr std::uint32_t hash(std::uint32_t prime, const char (&s)[N], std::size_t len = N - 1) noexcept
         {
             // Simple Horner hash
             return (len <= 1) ? s[0] : (prime * hash(prime, s, len - 1) + s[len - 1]);
@@ -40,7 +39,7 @@ namespace axl
         constexpr auto hashFunctionSignature() noexcept -> std::uint32_t
         {
             // Declare 'hashedSignature' as constexpr before returning it forces 
-            // the compiler to create it at compile time
+            // the compiler to create it at compile time.
             
             constexpr auto hashedSignature = hash(typeName<F>());
             return hashedSignature;
@@ -89,6 +88,46 @@ namespace axl
 
             return name;
         }
+
+        template<typename F>
+        struct fun_type : public fun_type<decltype(&F::operator())> {};
+
+        template<typename Ret, typename Class, typename... Args>
+        struct fun_type<Ret (Class::*)(Args...) const>
+        {
+            using type    = std::function<Ret (Args...)>;
+            using pointer = Ret (*)(Args...);
+        };
+
+        template<typename F>
+        using fun_type_t = typename fun_type<F>::type;
+
+        template<typename F>
+        using fun_type_p = typename fun_type<F>::pointer;
+
+        template<typename F>
+        inline decltype(auto) retrospective_cast(F&& func)
+        {
+            // Capturing lambdas can't be converted into function pointers,
+            // and even by putting them in a std::function, we still have
+            // a custom pointer incompatible with how Delegate works.
+
+            static_assert(std::is_convertible_v<F, fun_type_p<F>>,
+                          "Delegate: capturing lambdas are not supported, "
+                          "refer to the documentation for more information.");
+            
+            if constexpr (std::is_convertible_v<F, fun_type_p<F>>)
+            {
+                // TODO: more tests to check if the behavior is always correct
+                return static_cast<fun_type_p<F>>(func);
+            }
+            else
+            {
+                // It won't work (because of the internal type of the lamdba),
+                // no more than fun_type_t<F>(func).
+                return std::function { func };  
+            }
+        }
     } // end of namespace detail
 
     class BadDelegateArguments final : public std::runtime_error
@@ -105,6 +144,16 @@ namespace axl
     class Delegate
     {
     public:
+        // Mandatory to be stored in a map
+        Delegate() noexcept = default;
+
+        template<typename F>
+        Delegate(F&& function) noexcept
+        {
+            // Deduce lambdas types
+            assign(detail::retrospective_cast(std::forward<F>(function)));
+        }
+
         template<typename Ret, typename... Args>
         Delegate(std::function<Ret (Args...)> function) noexcept
             : _hashedSignature { detail::hashFunctionSignature<Ret, std::decay_t<Args>...>() }
@@ -119,20 +168,41 @@ namespace axl
             assign(function);
         }
 
+        Delegate(Delegate&& other) noexcept
+            : _functor         { std::exchange(other._functor, nullptr) }
+            , _handle          { std::exchange(other._handle, nullptr)  }
+            , _hashedSignature { other._hashedSignature                 }
+        {}
+
+        Delegate& operator=(Delegate&& other) noexcept
+        {
+            _functor = std::exchange(other._functor, nullptr);
+            _handle  = std::exchange(other._handle, nullptr);
+            
+            _hashedSignature = other._hashedSignature;
+            return *this;
+        }
+
     public:
         template<typename Ret, typename... Args>
         void assign(std::function<Ret (Args...)> function) noexcept
         {
-            assign(*function.target<Ret (*)(Args...)>());
+            if (auto target = function.target<Ret (*)(Args...)>(); target)
+                assign(*target);
         }
 
         template<typename Ret, typename... Args>
         void assign(Ret (*function)(Args...)) noexcept
         {
-            constexpr auto sigHash = detail::hashFunctionSignature<Ret, std::decay_t<Args>...>();
-
-            if (function && sigHash == _hashedSignature)
+            if (function)
             {
+                constexpr auto sigHash = detail::hashFunctionSignature<Ret, std::decay_t<Args>...>();
+            
+                if (_hashedSignature == 0)
+                    _hashedSignature = sigHash;
+                else if (sigHash != _hashedSignature)
+                    return;
+
                 // The functor is mandatory to keep the real signature of the handle.
 
                 // In this particular case, f should take (void*, auto&&... args) as parameters.
