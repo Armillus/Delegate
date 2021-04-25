@@ -244,6 +244,11 @@ namespace axl
             return *this;
         }
 
+        // Makes Delegate non copyable
+        
+        Delegate(Delegate&) noexcept = delete;
+        Delegate& operator=(Delegate&) noexcept = delete;
+
     public:
         template<typename F>
         void operator=(F&& function) noexcept
