@@ -202,8 +202,18 @@ can properly optmize the code in this configuration.
 
 # Limitations
 
+## Compatibility
+
 **Delegate requires at least C++ 17.**
-Concerning the limitations, you should first ensure that your compiler is recent enough to support Delegate.
+Concerning the compiler, you should first ensure that it is part of the following list to use Delegate.
+
+### Supported compilers
+
+* Clang: >= 5
+* MSVC:  >= 15.3
+* GCC:   >= 7
+
+## Capturing lambdas
 
 The most embarassing issue is that **Delegates does not support capturing lambdas**. It comes from the fact that prior to C++20,
 capturing lambdas can't be decayed as function pointers.
@@ -213,6 +223,27 @@ Thus, you can't expect to do that in your code:
 int base = 5;
 axl::Delegate d { +[base](int& b) { return base + b; } };  // KO: Won't compile
 ```
+
+## Pay attention to your references
+
+This is more a warning than a limitation.
+
+In Delegate, you can **pass rvalues to functions waiting for lvalue references** (if the parameter type is copyable). 
+It comes from the fact that functions signatures are decayed before hashing.
+
+It could trigger some bugs in your program, so be careful.
+
+```cpp
+axl::Delegate d { +[](int a, int& b) { return base + b; } };
+
+d.call<int(5, 5)>;  // OK: Compile and works smoothly (produces 10 as a result)
+```
+
+# Integration
+
+You can add the content of the `include` folder (which contains only one file) into your project to use Delegate.
+
+The provided `CMakeLists.txt` is only an example of what you can do to compile Delegate as a libary.
 
 # Contribute
 
