@@ -247,11 +247,12 @@ The provided `CMakeLists.txt` is only an example of what you can do to compile D
 
 # Contribute
 
-There is no specific guide to follow to contribute to this project, but feel free to contribute in any way! I probably won't accept all requests, but
+There is no specific guide to follow to contribute to this project, but feel free to contribute in any way! I probably won't accept all changes, but
 I will consider all of them with pleasure.
 
-I just ask you to stick with the coding style used in this project, and to explain clearly why your modification is useful.
+I just ask you to stick with the coding style used in this project, and to explain clearly the purpose of your modification.
+Thank you in advance for your contributions!
 
 # License
 
-This repository is licensed under the [MIT License](https://en.wikipedia.org/wiki/MIT_License). You're free to sue it in your personal / professional projects.
+This repository is licensed under the [MIT License](https://en.wikipedia.org/wiki/MIT_License). You're free to use it in your personal / professional projects.
