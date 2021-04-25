@@ -124,7 +124,7 @@ int main()
 }
 ```
 
-## Call an empty Delegate
+## Call a Delegate with the wrong parameters
 
 ```cpp
 // C++ includes
@@ -140,8 +140,8 @@ int main()
     
     try
     {
-        d.call<int>('a',  b);
-        d.call<int>(5.0f, b);
+        d.call<int>('a',  b);  // KO: The first argument is not an integer
+        d.call<int>(5.0f, b);  // KO: The first argument is not an integer
     }
     catch (const BadDelegateArguments& e)  // Inherits from std::runtime_error
     {
@@ -152,7 +152,7 @@ int main()
 }
 ```
 
-## Call a Delegate with the wrong parameters
+## Call an empty Delegate
 
 ```cpp
 // C++ includes
@@ -168,7 +168,7 @@ int main()
     
     try
     {
-        int res = d.call<int>(5, b);
+        int res = d.call<int>(5, b); // KO: The Delegate is empty
     }
     catch (const std::bad_function_call& e)
     {
@@ -202,10 +202,20 @@ can properly optmize the code in this configuration.
 
 # Limitations
 
-**Delegate requires at least C++ 17.**
-Concerning the limitations, you should first ensure that your compiler is recent enough to support Delegate.
+## Compatibility
 
-The most embarassing issue is that **Delegates does not support capturing lambdas**. It comes from the fact that prior to C++20,
+**Delegate requires at least C++ 17.**
+Concerning the compiler, you should first ensure that it is part of the following list to use Delegate.
+
+### Supported compilers
+
+* Clang: >= 5
+* MSVC:  >= 15.3
+* GCC:   >= 7
+
+## Capturing lambdas
+
+The most embarassing issue is that **Delegates does not support capturing lambdas**. It comes from the fact that
 capturing lambdas can't be decayed as function pointers.
 
 Thus, you can't expect to do that in your code:
@@ -214,13 +224,35 @@ int base = 5;
 axl::Delegate d { +[base](int& b) { return base + b; } };  // KO: Won't compile
 ```
 
+## Pay attention to your references
+
+This is more a warning than a limitation.
+
+In Delegate, you can **pass rvalues to functions waiting for lvalue references** (if the parameter type is copyable). 
+It comes from the fact that functions signatures are decayed before hashing.
+
+It could trigger some bugs in your program, so be careful.
+
+```cpp
+axl::Delegate d { +[](int a, int& b) { return base + b; } };
+
+d.call<int(5, 5)>;  // OK: Compile and works smoothly (produces 10 as a result)
+```
+
+# Integration
+
+You can add the content of the `include` folder (which contains only one file) into your project to use Delegate.
+
+The provided `CMakeLists.txt` is only an example of what you can do to compile Delegate as a libary.
+
 # Contribute
 
-There is no specific guide to follow to contribute to this project, but feel free to contribute in any way! I probably won't accept all requests, but
+There is no specific guide to follow to contribute to this project, but feel free to contribute in any way! I probably won't accept all changes, but
 I will consider all of them with pleasure.
 
-I just ask you to stick with the coding style used in this project, and to explain clearly why your modification is useful.
+I just ask you to stick with the coding style used in this project, and to explain clearly the purpose of your modification.
+Thank you in advance for your contributions!
 
 # License
 
-This repository is licensed under the [MIT License](https://en.wikipedia.org/wiki/MIT_License). You're free to sue it in your personal / professional projects.
+This repository is licensed under the [MIT License](https://en.wikipedia.org/wiki/MIT_License). You're free to use it in your personal / professional projects.
