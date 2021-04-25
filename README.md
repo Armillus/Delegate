@@ -8,6 +8,8 @@ Delegate has grown and aims to provide an easy to use way to replace your `std::
 While being as safe as a standard `std::function`, Delegates are smaller, faster and they **don't use any heap allocation**, 
 whatever the size of the function you store inside. Furthermroe, it's a **header only library**, easy to integrate in your C++ 17 / C++ 20 projects.
 
+![Benchmark example](https://github.com/Armillus/Delegate/blob/master/benchmarks/results/msvc/ExecutionTime.JPG "MSVC benchmark")
+
 ## Why Delegate?
 
 I wasn't really happy with `std::function` in my projects, for different reasons.
@@ -188,22 +190,15 @@ Anyway, you can find below the few tests results which are available. The code f
 Note that in Debug, Delegate may be slower than `std::function`. The performance benefits come with the Release mode, because the compiler
 can properly optmize the code in this configuration.
 
-## Execution time (Delegate vs std::function)
+## Execution time and Creation + Execution time (Delegate vs std::function)
 
-### MSVC
+### MSVC (19.28)
 
-### Clang
+![Results](https://github.com/Armillus/Delegate/blob/master/benchmarks/results/msvc/Results.JPG "MSVC results")
 
-### G++
+### Clang (11.0)
 
-
-## Creation + Execution time (Delegate vs std::function)
-
-### MSVC
-
-### Clang
-
-### G++
+![Results](https://github.com/Armillus/Delegate/blob/master/benchmarks/results/clang/Results.JPG "Clang results")
 
 # Limitations
 
@@ -221,6 +216,11 @@ axl::Delegate d { +[base](int& b) { return base + b; } };  // KO: Won't compile
 
 # Contribute
 
+There is no specific guide to follow to contribute to this project, but feel free to contribute in any way! I probably won't accept all requests, but
+I will consider all of them with pleasure.
+
+I just ask you to stick with the coding style used in this project, and to explain clearly why your modification is useful.
+
 # License
 
-
+This repository is licensed under the [MIT License](https://en.wikipedia.org/wiki/MIT_License). You're free to sue it in your personal / professional projects.
