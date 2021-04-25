@@ -68,10 +68,9 @@ namespace axl
 
         [[nodiscard]] constexpr std::uint32_t hash(std::uint32_t prime, const char* s, std::size_t len) noexcept
         {
-            // Simple Horner hash
-            
             std::uint32_t hash = 0;
             
+            // Simple Horner hash
             for (std::uint32_t i = 0; i < len; ++i)
                 hash = prime * hash + s[i];
             
@@ -206,6 +205,8 @@ namespace axl
     public:
         // Mandatory to be stored in a map
         Delegate() noexcept = default;
+
+        ~Delegate() noexcept = default;
 
         template<typename F>
         Delegate(F&& function) noexcept
