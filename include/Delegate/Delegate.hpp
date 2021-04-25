@@ -39,7 +39,7 @@
     #define _AXL_STANDARD_SUPPORTED 1
 #endif
 
-// Check compiler compatibility (Clang >+ 5, MSVC >= 15.3, GCC >= 7)
+// Check compiler compatibility (Clang >= 5, MSVC >= 15.3, GCC >= 7)
 #if defined(__clang__) && __clang_major__ >= 5 || defined(__GNUC__) && __GNUC__ >= 7 || defined(_MSC_VER) && _MSC_VER >= 1910
     #undef  _AXL_COMPILER_SUPPORTED
     #define _AXL_COMPILER_SUPPORTED 1
