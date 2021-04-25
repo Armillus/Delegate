@@ -1,9 +1,33 @@
+/// @author  Armillus (Axel M. | https://github.com/Armillus)
+/// @project Delegate
+
+// Copyright (c) 2021 Axel Millot <millotaxel71@gmail.com>.
+//
+// Permission is hereby  granted, free of charge, to any  person obtaining a copy
+// of this software and associated  documentation files (the "Software"), to deal
+// in the Software  without restriction, including without  limitation the rights
+// to  use, copy,  modify, merge,  publish, distribute,  sublicense, and/or  sell
+// copies  of  the Software,  and  to  permit persons  to  whom  the Software  is
+// furnished to do so, subject to the following conditions:
+//
+// The above copyright notice and this permission notice shall be included in all
+// copies or substantial portions of the Software.
+//
+// THE SOFTWARE  IS PROVIDED "AS  IS", WITHOUT WARRANTY  OF ANY KIND,  EXPRESS OR
+// IMPLIED,  INCLUDING BUT  NOT  LIMITED TO  THE  WARRANTIES OF  MERCHANTABILITY,
+// FITNESS FOR  A PARTICULAR PURPOSE AND  NONINFRINGEMENT. IN NO EVENT  SHALL THE
+// AUTHORS  OR COPYRIGHT  HOLDERS  BE  LIABLE FOR  ANY  CLAIM,  DAMAGES OR  OTHER
+// LIABILITY, WHETHER IN AN ACTION OF  CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+// OUT OF OR IN CONNECTION WITH THE SOFTWARE  OR THE USE OR OTHER DEALINGS IN THE
+// SOFTWARE.
+
 #pragma once
 
 // C++ includes
 #include <functional>
 #include <string_view>
 #include <type_traits>
+#include <stdexcept>
 
 #if defined(__clang__)
     #pragma clang diagnostic push
@@ -135,8 +159,10 @@ namespace axl
         template<typename F>
         using function_type_p = typename function_type<F>::pointer;
 
-        // More on dedicated / retrospective casts for lambdas here:
+        // More on dedicated / retrospective casts for lambdas:
+        // https://www.py4u.net/discuss/63381
         // https://stackoverflow.com/questions/13358672/how-to-convert-a-lambda-to-an-stdfunction-using-templates
+        // https://gist.github.com/khvorov/cd626ea3685fd5e8bf14
 
         template<typename F>
         constexpr decltype(auto) retrospective_cast(F&& func)
@@ -236,10 +262,10 @@ namespace axl
         template<typename Ret = void, typename... Args>
         Ret operator ()(Args&&... args) const
         {
-            constexpr auto sigHash = detail::hashFunctionSignature<Ret, std::decay_t<Args>...>();
-
             if (_handle == nullptr)
                 throw std::bad_function_call();
+
+            constexpr auto sigHash = detail::hashFunctionSignature<Ret, std::decay_t<Args>...>();
 
             if (sigHash != _hashedSignature)
                 throw BadDelegateArguments(detail::typeName<Ret (*)(Args...)>());

@@ -1,14 +1,23 @@
 ﻿cmake_minimum_required (VERSION 3.8)
 
-project ("Delegate")
+set(APP Delegate)
 
-find_package(benchmark CONFIG REQUIRED)
+project(${APP} VERSION "1.0.0")
 
-include_directories(Delegate PRIVATE include)
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED True)
 
-add_executable (Delegate "main.cpp" "include/Delegate/Delegate.hpp")
+if(CMAKE_PROJECT_NAME STREQUAL ${APP})
+	set(BUILD_SUBDIRECTORIES TRUE)
+else()
+	set(BUILD_SUBDIRECTORIES FALSE)
+endif()
 
-target_link_libraries(Delegate PRIVATE benchmark::benchmark benchmark::benchmark_main)
-target_compile_features(Delegate PRIVATE cxx_std_17)
+if(${BUILD_SUBDIRECTORIES})
+	add_subdirectory(benchmarks)
+endif()
 
-# TODO: Add tests and install targets if needed.
+add_library(${APP} INTERFACE ${PROJECT_SOURCE_DIR}/include/Delegate/Delegate.hpp)
+
+target_compile_features(${APP} INTERFACE cxx_std_17)
+target_include_directories(${APP} INTERFACE include)
