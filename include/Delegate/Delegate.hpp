@@ -10,7 +10,7 @@
 #endif
 
 // Check if the standard is >= C++ 17
-#if ((defined(_MSVC_LANG) && _MSVC_LANG >= 201703L) || _cplusplus >= 201703L)
+#if ((defined(_MSVC_LANG) && _MSVC_LANG >= 201703L) || __cplusplus >= 201703L)
     #undef  _AXL_STANDARD_SUPPORTED
     #define _AXL_STANDARD_SUPPORTED 1
 #endif
@@ -24,14 +24,21 @@
 static_assert(_AXL_STANDARD_SUPPORTED && _AXL_COMPILER_SUPPORTED,
               "Delegate requires at least C++ 17 and a compatible compiler.");
 
+#if defined(__clang__) || defined(__GNUC__)
+    #define _AXL_FUNCTION_SIGNATURE __PRETTY_FUNCTION__
+#elif defined(_MSC_VER)
+    #define _AXL_FUNCTION_SIGNATURE __FUNCSIG__
+#endif
+
 namespace axl
 {
+    // Specific code needed for Delegate, do not use it out of this file
     namespace detail
     {
         template<std::size_t N>
         [[nodiscard]] constexpr std::uint32_t hash(std::uint32_t prime, const char (&s)[N], std::size_t len = N - 1) noexcept
         {
-            // Simple Horner hash
+            // Simple recursive Horner hash (may fail on Clang)
             return (len <= 1) ? s[0] : (prime * hash(prime, s, len - 1) + s[len - 1]);
         }
 
@@ -67,7 +74,7 @@ namespace axl
             std::size_t end   = s.find_last_of('>');
             
             if (end == std::string_view::npos)
-                return {};
+                return {};  // Unsupported type name
 
             for (std::size_t i = end - 1, tokens = 0; i > 0; --i)
             {
@@ -95,14 +102,8 @@ namespace axl
             // Inspired from nameof, check it out here:
             // https://github.com/Neargye/nameof
 
-            #if defined(__clang__) || defined(__GNUC__)
-                constexpr auto name = prettifyName({ __PRETTY_FUNCTION__, sizeof(__PRETTY_FUNCTION__) });
-            #elif defined(_MSC_VER)
-                constexpr auto name = prettifyName({ __FUNCSIG__, sizeof(__FUNCSIG__) });
-            #else
-                #error Unsupported compiler, impossible to detect the function signature.
-            #endif
-
+            constexpr auto size = sizeof(_AXL_FUNCTION_SIGNATURE);
+            constexpr auto name = prettifyName({ _AXL_FUNCTION_SIGNATURE, size });
             return name;
         }
 
@@ -116,21 +117,26 @@ namespace axl
             return hashedSignature;
         }
 
+        // Specific axl traits, mostly used to decay lambdas as function pointers
+
         template<typename F>
-        struct fun_type : public fun_type<decltype(&F::operator())> {};
+        struct function_type : public function_type<decltype(&F::operator())> {};
 
         template<typename Ret, typename Class, typename... Args>
-        struct fun_type<Ret (Class::*)(Args...) const>
+        struct function_type<Ret (Class::*)(Args...) const>
         {
             using type    = std::function<Ret (Args...)>;
             using pointer = Ret (*)(Args...);
         };
 
         template<typename F>
-        using fun_type_t = typename fun_type<F>::type;
+        using function_type_t = typename function_type<F>::type;
 
         template<typename F>
-        using fun_type_p = typename fun_type<F>::pointer;
+        using function_type_p = typename function_type<F>::pointer;
+
+        // More on dedicated / retrospective casts for lambdas here:
+        // https://stackoverflow.com/questions/13358672/how-to-convert-a-lambda-to-an-stdfunction-using-templates
 
         template<typename F>
         constexpr decltype(auto) retrospective_cast(F&& func)
@@ -139,19 +145,19 @@ namespace axl
             // and even by putting them in a std::function, we still have
             // a custom pointer incompatible with how Delegate works.
 
-            static_assert(std::is_convertible_v<F, fun_type_p<F>>,
+            static_assert(std::is_convertible_v<F, function_type_p<F>>,
                           "Delegate: capturing lambdas are not supported, "
                           "refer to the documentation for more information.");
             
-            if constexpr (std::is_convertible_v<F, fun_type_p<F>>)
+            if constexpr (std::is_convertible_v<F, function_type_p<F>>)
             {
                 // TODO: more tests to check if the behavior is always correct
-                return static_cast<fun_type_p<F>>(func);
+                return static_cast<function_type_p<F>>(func);
             }
             else
             {
                 // It won't work (because of the internal type of the lamdba),
-                // no more than fun_type_t<F>(func).
+                // no more than function_type_t<F>(func).
                 return std::function { func };  
             }
         }
@@ -166,6 +172,7 @@ namespace axl
         {}
     };
 
+    // Reduce the size of Delegate of 4 bytes by setting the memory alignment to 1
     #pragma pack(push, 1)
 
     class Delegate
@@ -308,6 +315,10 @@ namespace axl
         return lhs.type() != rhs.type();
     }
 } // end of axl namespace
+
+#undef _AXL_FUNCTION_SIGNATURE
+#undef _AXL_COMPILER_SUPPORTED
+#undef _AXL_STANDARD_SUPPORTED 
 
 #if defined(__clang__)
     #pragma clang diagnostic pop
