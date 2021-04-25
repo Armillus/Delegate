@@ -3,13 +3,31 @@
 // C++ includes
 #include <functional>
 #include <string_view>
+#include <type_traits>
+
+#if defined(__clang__)
+    #pragma clang diagnostic push
+#endif
+
+// Check if the standard is >= C++ 17
+#if ((defined(_MSVC_LANG) && _MSVC_LANG >= 201703L) || _cplusplus >= 201703L)
+    #undef  _AXL_STANDARD_SUPPORTED
+    #define _AXL_STANDARD_SUPPORTED 1
+#endif
+
+// Check compiler compatibility (Clang >+ 5, MSVC >= 15.3, GCC >= 7)
+#if defined(__clang__) && __clang_major__ >= 5 || defined(__GNUC__) && __GNUC__ >= 7 || defined(_MSC_VER) && _MSC_VER >= 1910
+    #undef  _AXL_COMPILER_SUPPORTED
+    #define _AXL_COMPILER_SUPPORTED 1
+#endif
+
+static_assert(_AXL_STANDARD_SUPPORTED && _AXL_COMPILER_SUPPORTED,
+              "Delegate requires at least C++ 17 and a compatible compiler.");
 
 namespace axl
 {
     namespace detail
     {
-        #define HASH_DEFAULT_PRIME_NUMBER 73
-
         template<std::size_t N>
         [[nodiscard]] constexpr std::uint32_t hash(std::uint32_t prime, const char (&s)[N], std::size_t len = N - 1) noexcept
         {
@@ -20,13 +38,21 @@ namespace axl
         [[nodiscard]] constexpr std::uint32_t hash(std::uint32_t prime, const char* s, std::size_t len) noexcept
         {
             // Simple Horner hash
-            return (len <= 1) ? s[0] : (prime * hash(prime, s, len - 1) + s[len - 1]);
+            
+            std::uint32_t hash = 0;
+            
+            for (std::uint32_t i = 0; i < len; ++i)
+                hash = prime * hash + s[i];
+            
+            return hash;
         }
 
         [[nodiscard]] constexpr std::uint32_t hash(std::uint32_t prime, const std::string_view& s) noexcept
         {
-            return hash(prime, s.data(), s.size() - 1);
+            return hash(prime, s.data(), s.size());
         }
+
+        #define HASH_DEFAULT_PRIME_NUMBER 31
 
         [[nodiscard]] constexpr std::uint32_t hash(const std::string_view& s) noexcept
         {
@@ -34,16 +60,6 @@ namespace axl
         }
 
         #undef HASH_DEFAULT_PRIME_NUMBER
-
-        template<typename Ret, typename... Args, typename F = Ret (*)(Args...)>
-        constexpr auto hashFunctionSignature() noexcept -> std::uint32_t
-        {
-            // Declare 'hashedSignature' as constexpr before returning it forces 
-            // the compiler to create it at compile time.
-            
-            constexpr auto hashedSignature = hash(typeName<F>());
-            return hashedSignature;
-        }
 
         constexpr auto prettifyName(std::string_view s) noexcept -> std::string_view
         {
@@ -77,6 +93,7 @@ namespace axl
         constexpr auto typeName() noexcept -> std::string_view
         {
             // Inspired from nameof, check it out here:
+            // https://github.com/Neargye/nameof
 
             #if defined(__clang__) || defined(__GNUC__)
                 constexpr auto name = prettifyName({ __PRETTY_FUNCTION__, sizeof(__PRETTY_FUNCTION__) });
@@ -87,6 +104,16 @@ namespace axl
             #endif
 
             return name;
+        }
+
+        template<typename Ret, typename... Args, typename F = Ret (*)(Args...)>
+        constexpr auto hashFunctionSignature() noexcept -> std::uint32_t
+        {
+            // Declare 'hashedSignature' as constexpr before returning it forces 
+            // the compiler to create it at compile time.
+
+            constexpr auto hashedSignature = hash(typeName<F>());
+            return hashedSignature;
         }
 
         template<typename F>
@@ -106,7 +133,7 @@ namespace axl
         using fun_type_p = typename fun_type<F>::pointer;
 
         template<typename F>
-        inline decltype(auto) retrospective_cast(F&& func)
+        constexpr decltype(auto) retrospective_cast(F&& func)
         {
             // Capturing lambdas can't be converted into function pointers,
             // and even by putting them in a std::function, we still have
@@ -133,7 +160,7 @@ namespace axl
     class BadDelegateArguments final : public std::runtime_error
     {
     public:
-        BadDelegateArguments(std::string_view invalidSignature) noexcept
+        BadDelegateArguments(std::string_view&& invalidSignature) noexcept
             : std::runtime_error { std::string("Delegate called with the following bad signature: ")
                                    + invalidSignature.data() }
         {}
@@ -155,10 +182,10 @@ namespace axl
         }
 
         template<typename Ret, typename... Args>
-        Delegate(std::function<Ret (Args...)> function) noexcept
+        Delegate(std::function<Ret (Args...)>&& function) noexcept
             : _hashedSignature { detail::hashFunctionSignature<Ret, std::decay_t<Args>...>() }
         { 
-            assign(std::move(function));
+            assign(std::forward<decltype(function)>(function));
         }
 
         template<typename Ret, typename... Args>
@@ -258,8 +285,8 @@ namespace axl
                     return reinterpret_cast<Ret(*)(Args...)>(handle)(std::forward<Args>(args)...);
                 };
 
-                _functor = f;
-                _handle = function;
+                _functor = reinterpret_cast<void*>(f);
+                _handle  = reinterpret_cast<void*>(function);
             }
         }
 
@@ -281,3 +308,7 @@ namespace axl
         return lhs.type() != rhs.type();
     }
 } // end of axl namespace
+
+#if defined(__clang__)
+    #pragma clang diagnostic pop
+#endif
