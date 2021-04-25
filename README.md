@@ -124,7 +124,7 @@ int main()
 }
 ```
 
-## Call an empty Delegate
+## Call a Delegate with the wrong parameters
 
 ```cpp
 // C++ includes
@@ -140,8 +140,8 @@ int main()
     
     try
     {
-        d.call<int>('a',  b);
-        d.call<int>(5.0f, b);
+        d.call<int>('a',  b);  // KO: The first argument is not an integer
+        d.call<int>(5.0f, b);  // KO: The first argument is not an integer
     }
     catch (const BadDelegateArguments& e)  // Inherits from std::runtime_error
     {
@@ -152,7 +152,7 @@ int main()
 }
 ```
 
-## Call a Delegate with the wrong parameters
+## Call an empty Delegate
 
 ```cpp
 // C++ includes
@@ -168,7 +168,7 @@ int main()
     
     try
     {
-        int res = d.call<int>(5, b);
+        int res = d.call<int>(5, b); // KO: The Delegate is empty
     }
     catch (const std::bad_function_call& e)
     {
