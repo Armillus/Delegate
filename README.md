@@ -215,7 +215,7 @@ Concerning the compiler, you should first ensure that it is part of the followin
 
 ## Capturing lambdas
 
-The most embarassing issue is that **Delegates does not support capturing lambdas**. It comes from the fact that prior to C++20,
+The most embarassing issue is that **Delegates does not support capturing lambdas**. It comes from the fact that
 capturing lambdas can't be decayed as function pointers.
 
 Thus, you can't expect to do that in your code:
