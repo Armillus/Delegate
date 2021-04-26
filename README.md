@@ -236,7 +236,7 @@ It could trigger some bugs in your program, so be careful.
 ```cpp
 axl::Delegate d { +[](int a, int& b) { return base + b; } };
 
-d.call<int(5, 5)>;  // OK: Compile and works smoothly (produces 10 as a result)
+d.call<int>(5, 5);  // OK: Compile and works smoothly (produces 10 as a result)
 ```
 
 # Integration
