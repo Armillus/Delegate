@@ -47,7 +47,7 @@ is encapsulated in a functor lambda, decayed as a simple function pointer.
 By storing only C-style function pointers (we can allow it because of the safe hash check before any call to the function) and a hash, 
 **Delegates will always weight 16 bytes in memory** (a std::function is about 64 bytes, so 4 times more). No more, no less.
 
-# Documentation
+# Usage
 
 Here are some examples of usage of Delegate in different scenarios. However, note that **some limitations exist**, refer to the appropriate section for more information.
 
@@ -169,26 +169,12 @@ int main()
 }
 ```
 
-# Benchmarks
+# Integration / Installation
 
-**I did not run enough tests for now**, so feel free to contribute to this section. I know that benchmarking is a long and complicated process,
-but hopefully it will give you an idea about Delegate's performance.
+**Delegate is a header only library.**
+You can add the content of the `include` folder (which contains only one file) into your project to use Delegate.
 
-Anyway, you can find below the few tests results which are available. The code for these benchmarks can be found in the `benchmarks` folder.
-**Benchmarks are made with [Google Benchmark](https://github.com/google/benchmark).**
-
-Note that in Debug, Delegate may be slower than `std::function`. The performance benefits come with the Release mode, because the compiler
-can properly optmize the code in this configuration.
-
-## Execution time and Creation + Execution time (Delegate vs std::function)
-
-### MSVC (19.28)
-
-![Results](https://github.com/Armillus/Delegate/blob/master/benchmarks/results/msvc/Results.JPG "MSVC results")
-
-### Clang (11.0)
-
-![Results](https://github.com/Armillus/Delegate/blob/master/benchmarks/results/clang/Results.JPG "Clang results")
+The provided `CMakeLists.txt` is only an example of what you can do to compile Delegate as a libary.
 
 # Limitations
 
@@ -229,11 +215,26 @@ axl::Delegate d { +[](int a, int& b) { return base + b; } };
 d.call<int>(5, 5);  // OK: Compile and works smoothly (produces 10 as a result)
 ```
 
-# Integration
+# Benchmarks
 
-You can add the content of the `include` folder (which contains only one file) into your project to use Delegate.
+**I did not run enough tests for now**, so feel free to contribute to this section. I know that benchmarking is a long and complicated process,
+but hopefully it will give you an idea about Delegate's performance.
 
-The provided `CMakeLists.txt` is only an example of what you can do to compile Delegate as a libary.
+Anyway, you can find below the few tests results which are available. The code for these benchmarks can be found in the `benchmarks` folder.
+**Benchmarks are made with [Google Benchmark](https://github.com/google/benchmark).**
+
+Note that in Debug, Delegate may be slower than `std::function`. The performance benefits come with the Release mode, because the compiler
+can properly optmize the code in this configuration.
+
+## Execution time and Creation + Execution time (Delegate vs std::function)
+
+### MSVC (19.28)
+
+![Results](https://github.com/Armillus/Delegate/blob/master/benchmarks/results/msvc/Results.JPG "MSVC results")
+
+### Clang (11.0)
+
+![Results](https://github.com/Armillus/Delegate/blob/master/benchmarks/results/clang/Results.JPG "Clang results")
 
 # Contribute
 
