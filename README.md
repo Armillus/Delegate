@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="https://user-images.githubusercontent.com/37043348/116135698-b5003f00-a6d1-11eb-81a3-330179377493.png">
+</p>
+
 # Overview
 
 **As easy as C#, as fast as C++.**
@@ -6,9 +10,7 @@ Developed at the beginning as a part of a much larger project to help me to achi
 Delegate has grown and aims to provide an easy to use way to replace your `std::function` efficiently. 
 
 While being as safe as a standard `std::function`, Delegates are smaller, faster and they **don't use any heap allocation**, 
-whatever the size of the function you store inside. Furthermroe, it's a **header only library**, easy to integrate in your C++ 17 / C++ 20 projects.
-
-![Benchmark example](https://github.com/Armillus/Delegate/blob/master/benchmarks/results/msvc/ExecutionTime.JPG "MSVC benchmark")
+whatever the size of the function you store inside. Furthermore, it's a **header only library**, easy to integrate in your C++ 17 / C++ 20 projects.
 
 ## Why Delegate?
 
@@ -26,26 +28,6 @@ with my own replacement for `std::function`.
 
 Note that by creating this project, I wanted something similar to [C# Delegates](https://docs.microsoft.com/en-us/dotnet/csharp/programming-guide/delegates/using-delegates),
 but with all the power and speed of C++.
-
-## How it works?
-
-Under the hood, Delegate come from a simple idea.
-When you execute a function, the signature of the latter is fixed. Usually, this signature is checked at compile time with templates.
-
-The problem that I have with this implementation is that you can't store a map of functions of different signatures in C++ (at least not in a standard and reliable way).
-So, how can we store the fixed type of a function signature without using templates? **By hashing!**
-
-Thanks to [Nameof](https://github.com/Neargye/nameof), we know that we can achieve some reflection and get the the type of a function as a string at compile time.
-From the string, you can then get the corresponding hash.
-
-**The whole trick of Delegate is to store the function signature as a compile time hash**. Thus, when someone calls the function, the parameters and the return type
-provided by the caller are hashed (always at compile time) and compared to the internal hash of the Delegate. If signatures don't match, an exception is thrown.
-
-This mechanism provides a safe way to store the type of the function. Moreover, **it does not perform any heap allocation**, because the original target function
-is encapsulated in a functor lambda, decayed as a simple function pointer.
-
-By storing only C-style function pointers (we can allow it because of the safe hash check before any call to the function) and a hash, 
-**Delegates will always weight 16 bytes in memory** (a std::function is about 64 bytes, so 4 times more). No more, no less.
 
 # Usage
 
@@ -175,6 +157,26 @@ int main()
 You can add the content of the `include` folder (which contains only one file) into your project to use Delegate.
 
 The provided `CMakeLists.txt` is only an example of what you can do to compile Delegate as a libary.
+
+## How it works?
+
+Under the hood, Delegate come from a simple idea.
+When you execute a function, the signature of the latter is fixed. Usually, this signature is checked at compile time with templates.
+
+The problem that I have with this implementation is that you can't store a map of functions of different signatures in C++ (at least not in a standard and reliable way).
+So, how can we store the fixed type of a function signature without using templates? **By hashing!**
+
+Thanks to [Nameof](https://github.com/Neargye/nameof), we know that we can achieve some reflection and get the the type of a function as a string at compile time.
+From the string, you can then get the corresponding hash.
+
+**The whole trick of Delegate is to store the function signature as a compile time hash**. Thus, when someone calls the function, the parameters and the return type
+provided by the caller are hashed (always at compile time) and compared to the internal hash of the Delegate. If signatures don't match, an exception is thrown.
+
+This mechanism provides a safe way to store the type of the function. Moreover, **it does not perform any heap allocation**, because the original target function
+is encapsulated in a functor lambda, decayed as a simple function pointer.
+
+By storing only C-style function pointers (we can allow it because of the safe hash check before any call to the function) and a hash, 
+**Delegates will always weight 16 bytes in memory** (a std::function is about 64 bytes, so 4 times more). No more, no less.
 
 # Limitations
 
