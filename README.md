@@ -54,9 +54,6 @@ Here are some examples of usage of Delegate in different scenarios. However, not
 ## A single Delegate
 
 ```cpp
-// C++ includes
-#include <iostream>
-
 // Delegate includes
 #include <Delegate/Delegate.hpp>
 
@@ -83,7 +80,6 @@ int main()
 
 ```cpp
 // C++ includes
-#include <iostream>
 #include <unordered_map>
 
 // Delegate includes
@@ -127,9 +123,6 @@ int main()
 ## Call a Delegate with the wrong parameters
 
 ```cpp
-// C++ includes
-#include <iostream>
-
 // Delegate includes
 #include <Delegate/Delegate.hpp>
 
@@ -155,9 +148,6 @@ int main()
 ## Call an empty Delegate
 
 ```cpp
-// C++ includes
-#include <iostream>
-
 // Delegate includes
 #include <Delegate/Delegate.hpp>
 
