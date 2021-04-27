@@ -2,6 +2,13 @@
   <img src="https://user-images.githubusercontent.com/37043348/116135698-b5003f00-a6d1-11eb-81a3-330179377493.png">
 </p>
 
+<p align="center">
+  <img alt="License" src="https://img.shields.io/github/license/Armillus/Delegate">
+  <img alt="GitHub release (latest by date)" src="https://img.shields.io/github/v/release/Armillus/Delegate">
+  <img alt="GitHub Workflow Status" src="https://img.shields.io/github/workflow/status/Armillus/Delegate/windows">
+</p>
+
+
 # Overview
 
 **As easy as C#, as fast as C++.**
@@ -9,8 +16,8 @@
 Developed at the beginning as a part of a much larger project to help me to achieve good performance in critical scenarios, 
 Delegate has grown and aims to provide an easy to use way to replace your `std::function` efficiently. 
 
-While being as safe as a standard `std::function`, Delegates are smaller, faster and they **don't use any heap allocation**, 
-whatever the size of the function you store inside. Furthermore, it's a **header only library**, easy to integrate in your C++ 17 / C++ 20 projects.
+While being as safe as a standard `std::function`, Delegates are smaller, faster, non-templated (but still generic) and they **don't use any heap allocation**, 
+whatever the size of the function you store inside. Furthermore, it's a **header-only library**, easy to integrate in your C++ 17 / C++ 20 projects.
 
 ## Why Delegate?
 
@@ -36,13 +43,13 @@ Here are some examples of usage of Delegate in different scenarios. However, not
 ## A single Delegate
 
 ```cpp
-// Delegate includes
+// Delegate include
 #include <Delegate/Delegate.hpp>
 
 int main()
 {
     // A delegate instantiated on its own
-    axl::Delegate d { +[](int a, int& b) { return a + b; } };
+    axl::Delegate d { [](int a, int& b) { return a + b; } };
     int b = 5;
     
     // Res should be equal to 10
@@ -64,7 +71,7 @@ int main()
 // C++ includes
 #include <unordered_map>
 
-// Delegate includes
+// Delegate include
 #include <Delegate/Delegate.hpp>
 
 struct Position
@@ -105,13 +112,13 @@ int main()
 ## Call a Delegate with the wrong parameters
 
 ```cpp
-// Delegate includes
+// Delegate include
 #include <Delegate/Delegate.hpp>
 
 int main()
 {
     // A delegate instantiated on its own without any function
-    axl::Delegate d { +[](int a, int& b) { return a + b; } };
+    axl::Delegate d { [](int a, int& b) { return a + b; } };
     
     try
     {
@@ -130,7 +137,7 @@ int main()
 ## Call an empty Delegate
 
 ```cpp
-// Delegate includes
+// Delegate include
 #include <Delegate/Delegate.hpp>
 
 int main()
@@ -199,7 +206,7 @@ capturing lambdas can't be decayed as function pointers.
 Thus, you can't expect to do that in your code:
 ```cpp
 int base = 5;
-axl::Delegate d { +[base](int& b) { return base + b; } };  // KO: Won't compile
+axl::Delegate d { [base](int& b) { return base + b; } };  // KO: Won't compile
 ```
 
 ## Pay attention to your references
@@ -212,7 +219,7 @@ It comes from the fact that functions signatures are decayed before hashing.
 It could trigger some bugs in your program, so be careful.
 
 ```cpp
-axl::Delegate d { +[](int a, int& b) { return base + b; } };
+axl::Delegate d { [](int a, int& b) { return base + b; } };
 
 d.call<int>(5, 5);  // OK: Compile and works smoothly (produces 10 as a result)
 ```
