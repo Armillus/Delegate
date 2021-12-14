@@ -82,14 +82,12 @@ namespace axl
             return hash(prime, s.data(), s.size());
         }
 
-        #define HASH_DEFAULT_PRIME_NUMBER 31
-
         [[nodiscard]] constexpr std::uint32_t hash(const std::string_view& s) noexcept
         {
-            return hash(HASH_DEFAULT_PRIME_NUMBER, s);
-        }
+            constexpr std::size_t defaultPrimeNumber = 31;
 
-        #undef HASH_DEFAULT_PRIME_NUMBER
+            return hash(defaultPrimeNumber, s);
+        }
 
         constexpr auto prettifyName(std::string_view s) noexcept -> std::string_view
         {
