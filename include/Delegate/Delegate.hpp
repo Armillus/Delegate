@@ -77,12 +77,12 @@ namespace axl
             return hash;
         }
 
-        [[nodiscard]] constexpr std::uint32_t hash(std::uint32_t prime, const std::string_view& s) noexcept
+        [[nodiscard]] constexpr std::uint32_t hash(std::uint32_t prime, const std::string_view s) noexcept
         {
             return hash(prime, s.data(), s.size());
         }
 
-        [[nodiscard]] constexpr std::uint32_t hash(const std::string_view& s) noexcept
+        [[nodiscard]] constexpr std::uint32_t hash(const std::string_view s) noexcept
         {
             constexpr std::size_t defaultPrimeNumber = 31;
 
