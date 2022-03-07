@@ -687,6 +687,12 @@ namespace axl
         static constexpr auto PointerSize = (std::max)(sizeof(AnyTarget), sizeof(void*)); 
         static constexpr auto BufferSize  = (std::max)(StorageSize, PointerSize);
 
+        template<class F>
+        struct is_storable : std::bool_constant<sizeof(F) <= BufferSize && alignof(F) <= Alignment> {};
+
+        template<class F>
+        static constexpr bool is_storable_v = is_storable<F>::value;
+
     public:
         constexpr Delegate() noexcept = default;
 
@@ -750,8 +756,8 @@ namespace axl
 
         template<class F,
                  std::enable_if_t<(
-                     traits::is_likely_capturing_lambda_v<F>
-                    // fits_storage<std::decay_t<F>>::value
+                     traits::is_likely_capturing_lambda_v<F> &&
+                     is_storable_v<std::decay_t<F>>
                  ), int> = 0>
         constexpr Delegate(F&& target) noexcept
             : _wrapper { &executeStatefulCallable<F> }
@@ -829,8 +835,8 @@ namespace axl
 
         template<class F,
                  std::enable_if_t<(
-                    traits::is_likely_capturing_lambda_v<F>
-                    // fits_storage<std::decay_t<F>>::value
+                    traits::is_likely_capturing_lambda_v<F> &&
+                    is_storable_v<std::decay_t<F>>
                  ), int> = 0>
         constexpr void operator=(F&& target) noexcept
         {
@@ -956,8 +962,8 @@ namespace axl
 
         template<class F,
                  typename = std::enable_if_t<(
-                     traits::is_likely_capturing_lambda_v<F>
-                     // fits_storage<Fn>::value
+                     traits::is_likely_capturing_lambda_v<F> &&
+                     is_storable_v<std::decay_t<F>>
                  )>>
         [[nodiscard]]
         constexpr bool hasTarget(const F& target) const noexcept
@@ -1033,7 +1039,7 @@ namespace axl
 
         template<class F,
                  typename = std::enable_if_t<(
-                    !traits::is_function_v<F>
+                     !traits::is_function_v<F>
                  )>>
         constexpr void bind(F* target) noexcept
         {
@@ -1043,7 +1049,7 @@ namespace axl
             
         template<class F,
                  typename = std::enable_if_t<(
-                    !traits::is_function_v<F>
+                     !traits::is_function_v<F>
                  )>>
         constexpr void bind(const F* target) noexcept
         {
@@ -1053,8 +1059,8 @@ namespace axl
 
         template<class F,
                  std::enable_if_t<(
-                    std::is_empty_v<F> &&
-                    std::is_default_constructible_v<F>
+                     std::is_empty_v<F> &&
+                     std::is_default_constructible_v<F>
                  ), int> = 0>
         constexpr void bind() noexcept
         {
@@ -1072,8 +1078,8 @@ namespace axl
 
         template<class F,
                  std::enable_if_t<(
-                    traits::is_likely_capturing_lambda_v<F>
-                    // fits_storage<std::decay_t<F>>::value
+                     traits::is_likely_capturing_lambda_v<F> &&
+                     is_storable_v<std::decay_t<F>>
                  ), int> = 0>
         constexpr void bind(F&& target) noexcept
         {
@@ -1278,6 +1284,12 @@ namespace axl
         static constexpr auto PointerSize = (std::max)(sizeof(AnyTarget), sizeof(void*)); 
         static constexpr auto BufferSize  = (std::max)(StorageSize, PointerSize);
 
+        template<class F>
+        struct is_storable : std::bool_constant<sizeof(F) <= BufferSize && alignof(F) <= Alignment> {};
+
+        template<class F>
+        static constexpr bool is_storable_v = is_storable<F>::value;
+
     public:
         constexpr Delegate() noexcept = default;
 
@@ -1357,7 +1369,7 @@ namespace axl
         template<class F,
                  std::enable_if_t<(
                      traits::is_likely_capturing_lambda_v<F> &&
-                     // fits_storage<std::decay_t<F>>::value&&
+                     is_storable_v<std::decay_t<F>> &&
                      std::is_invocable_r_v<Ret, const F&, Args...>
                  ), int> = 0>
         constexpr Delegate(F&& target) noexcept
@@ -1455,7 +1467,7 @@ namespace axl
         template<class F,
                  std::enable_if_t<(
                      traits::is_likely_capturing_lambda_v<F> &&
-                     // fits_storage<std::decay_t<F>>::value &&
+                     is_storable_v<std::decay_t<F>> &&
                      std::is_invocable_r_v<Ret, const F&, Args...>
                  ), int> = 0>
         constexpr void operator=(F&& target) noexcept
@@ -1582,7 +1594,7 @@ namespace axl
         template<class F,
                  typename = std::enable_if_t<(
                      traits::is_likely_capturing_lambda_v<F> &&
-                     // fits_storage<Fn>::value&&
+                     is_storable_v<std::decay_t<F>> &&
                      std::is_invocable_r_v<Ret, const F&, Args...>
                  )>>
         [[nodiscard]]
@@ -1719,7 +1731,7 @@ namespace axl
         template<class F,
                  std::enable_if_t<(
                      traits::is_likely_capturing_lambda_v<F> &&
-                     // fits_storage<std::decay_t<F>>::value &&
+                     is_storable_v<std::decay_t<F>> &&
                      std::is_invocable_r_v<Ret, const F&, Args...>
                  ), int> = 0>
         constexpr void bind(F&& target) noexcept
