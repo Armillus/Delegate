@@ -614,10 +614,27 @@ namespace axl
 
 
     /* ===================================================================== */
-    /* Custom Delegate exceptions.
+    /* BadDelegateCall
+    /* --------------------------------------------------------------------- */
+    /* Exception thrown when a Delegate is called while it doesn't hold
+    /* any target.
     /* ===================================================================== */
 
-    class BadDelegateCall : public std::bad_function_call {};
+    class BadDelegateCall : public std::exception
+    {
+    public:
+        BadDelegateCall() noexcept
+            : std::exception { "A delegate without any bound function has been called." }
+        {}
+    };
+
+
+    /* ===================================================================== */
+    /* BadDelegateArguments
+    /* --------------------------------------------------------------------- */
+    /* Exception thrown when a Delegate is called whit a wrong set of
+    /* arguments. Note that this can be thrown only by dynamic delegates.
+    /* ===================================================================== */
 
     class BadDelegateArguments : public std::runtime_error
     {
