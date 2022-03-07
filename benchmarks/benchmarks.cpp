@@ -33,7 +33,7 @@ static void BM_Delegate_CreationAndExecutionTime(benchmark::State& state)
     {
         axl::Delegate d { +[](int a, int b) { return a + b; } };
 
-        d.call<int>(3, b++);
+        d(3, b++);
     }
 }
 
@@ -60,7 +60,7 @@ static void BM_Delegate_ExecutionTime(benchmark::State& state)
     int b = 0;
     for (auto _ : state)
     {
-        d.call<int>(3, b++);
+        d(3, b++);
     }
 }
 

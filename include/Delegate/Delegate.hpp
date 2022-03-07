@@ -47,8 +47,6 @@
 #include <type_traits>
 #include <stdexcept>
 #include <algorithm>
-#include <cstdarg>
-
 
 // +--------------------------------------------------------------------------+
 // | All of the code below is a mix of different inspirations such as:        |
