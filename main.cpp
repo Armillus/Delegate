@@ -16,6 +16,7 @@ int main()
     axl::Delegate del { axl::bind<&std::strlen>() };
 
     axl::Delegate d { [&]() { return a + b + c + 3; } };
+    axl::Delegate e { [](int num) { return num * num; } };
 
     std::unordered_map<int, axl::Delegate<int()>> test;
 
@@ -43,9 +44,10 @@ int main()
 
     static_assert(std::is_convertible_v<F, axl::traits::function_pointer_t<F>>);
 
-    t.bind([]() { std::cout << "hello" << std::endl; });
+    // FIXME: captureless lambdas are cannot be bound for now
+    // t.bind([]() { std::cout << "hello" << std::endl; });
 
-    t();
+    // t();
 
  //   axl::Delegate<int(axl::AnyArg)> lol{ +[](int a, const char* b) { std::cout << "In LOL => " << b << std::endl; return a; } };
 

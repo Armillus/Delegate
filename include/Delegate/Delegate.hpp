@@ -47,6 +47,7 @@
 #include <type_traits>
 #include <stdexcept>
 #include <algorithm>
+#include <cstring>
 
 // +--------------------------------------------------------------------------+
 // | All of the code below is a mix of different inspirations such as:        |
@@ -143,6 +144,91 @@ static_assert(
 
 namespace axl
 {
+     namespace detail
+    {
+        template<std::size_t N>
+        [[nodiscard]]
+        constexpr std::uint32_t hash(std::uint32_t prime, const char (&s)[N], std::size_t len = N - 1) noexcept
+        {
+            // Simple recursive Horner hash (may fail on Clang if 's' is too long)
+            return (len <= 1) ? s[0] : (prime * hash(prime, s, len - 1) + s[len - 1]);
+        }
+
+        [[nodiscard]]
+        constexpr std::uint32_t hash(std::uint32_t prime, const char* s, std::size_t len) noexcept
+        {
+            std::uint32_t hash = 0;
+            
+            // Simple Horner hash
+            for (std::uint32_t i = 0; i < len; ++i)
+                hash = prime * hash + s[i];
+            
+            return hash;
+        }
+
+        [[nodiscard]]
+        constexpr std::uint32_t hash(std::uint32_t prime, const std::string_view s) noexcept
+        {
+            return hash(prime, s.data(), s.size());
+        }
+
+        [[nodiscard]]
+        constexpr std::uint32_t hash(const std::string_view s) noexcept
+        {
+            constexpr std::size_t defaultPrimeNumber = 31;
+
+            return hash(defaultPrimeNumber, s);
+        }
+
+        constexpr auto prettifyName(std::string_view s) noexcept -> std::string_view
+        {
+            std::size_t start = 0;
+            std::size_t end   = s.find_last_of('>');
+            
+            if (end == std::string_view::npos)
+                return {};  // Unsupported type name
+
+            for (std::size_t i = end - 1, tokens = 0; i > 0; --i)
+            {
+                // Roll back to the original template opening token ('<')
+                if (s[i] == '>')
+                    tokens++;
+                else if (s[i] == '<')
+                {
+                    if (tokens)
+                        tokens--;
+                    else
+                    {
+                        start = i + 1;
+                        break;
+                    }
+                }
+            }
+
+            return s.substr(start, end - start);
+        }
+
+        template<class T>
+        constexpr auto typeName() noexcept -> std::string_view
+        {
+            // Inspired from nameof, check it out here:
+            // https://github.com/Neargye/nameof
+
+            constexpr auto name = prettifyName(_DELEGATE_FUNCTION_SIGNATURE);
+
+            return name;
+        }
+
+        template<class R, class... Args>
+        constexpr auto hashSignature() noexcept -> std::uint32_t
+        {
+            using F = R(*)(Args...);
+            constexpr auto hashedSignature = hash(typeName<F>());
+
+            return hashedSignature;
+        }
+    } // !namespace detail
+
     namespace traits
     {
         /* ============================================================= */
@@ -508,88 +594,6 @@ namespace axl
 
     namespace detail
     {
-        template<std::size_t N>
-        [[nodiscard]]
-        constexpr std::uint32_t hash(std::uint32_t prime, const char (&s)[N], std::size_t len = N - 1) noexcept
-        {
-            // Simple recursive Horner hash (may fail on Clang if 's' is too long)
-            return (len <= 1) ? s[0] : (prime * hash(prime, s, len - 1) + s[len - 1]);
-        }
-
-        [[nodiscard]]
-        constexpr std::uint32_t hash(std::uint32_t prime, const char* s, std::size_t len) noexcept
-        {
-            std::uint32_t hash = 0;
-            
-            // Simple Horner hash
-            for (std::uint32_t i = 0; i < len; ++i)
-                hash = prime * hash + s[i];
-            
-            return hash;
-        }
-
-        [[nodiscard]]
-        constexpr std::uint32_t hash(std::uint32_t prime, const std::string_view s) noexcept
-        {
-            return hash(prime, s.data(), s.size());
-        }
-
-        [[nodiscard]]
-        constexpr std::uint32_t hash(const std::string_view s) noexcept
-        {
-            constexpr std::size_t defaultPrimeNumber = 31;
-
-            return hash(defaultPrimeNumber, s);
-        }
-
-        constexpr auto prettifyName(std::string_view s) noexcept -> std::string_view
-        {
-            std::size_t start = 0;
-            std::size_t end   = s.find_last_of('>');
-            
-            if (end == std::string_view::npos)
-                return {};  // Unsupported type name
-
-            for (std::size_t i = end - 1, tokens = 0; i > 0; --i)
-            {
-                // Roll back to the original template opening token ('<')
-                if (s[i] == '>')
-                    tokens++;
-                else if (s[i] == '<')
-                {
-                    if (tokens)
-                        tokens--;
-                    else
-                    {
-                        start = i + 1;
-                        break;
-                    }
-                }
-            }
-
-            return s.substr(start, end - start);
-        }
-
-        template<class T>
-        constexpr auto typeName() noexcept -> std::string_view
-        {
-            // Inspired from nameof, check it out here:
-            // https://github.com/Neargye/nameof
-
-            constexpr auto name = prettifyName(_DELEGATE_FUNCTION_SIGNATURE);
-
-            return name;
-        }
-
-        template<class R, class... Args>
-        constexpr auto hashSignature() noexcept -> std::uint32_t
-        {
-            using F = R(*)(Args...);
-            constexpr auto hashedSignature = hash(typeName<F>());
-
-            return hashedSignature;
-        }
-
         // More on dedicated / retrospective casts for lambdas:
         // https://www.py4u.net/discuss/63381
         // https://stackoverflow.com/questions/13358672/how-to-convert-a-lambda-to-an-stdfunction-using-templates
@@ -618,11 +622,11 @@ namespace axl
     /* any target.
     /* ===================================================================== */
 
-    class BadDelegateCall : public std::exception
+    class BadDelegateCall : public std::runtime_error
     {
     public:
         BadDelegateCall() noexcept
-            : std::exception { "A delegate without any bound function has been called." }
+            : std::runtime_error { "A delegate without any bound function has been called." }
         {}
     };
 
@@ -865,13 +869,26 @@ namespace axl
         }
 
     public:
+        struct FixedString
+        {
+
+        };
+
+        // TODO: pass templated structure to the wrapper to force arguments handlign at compile time
+        template<std::size_t Hash, const char* Arguments>
+        struct ArgsDescription {};
+
         template<class... Args>
         constexpr auto operator ()(Args&&... args) const -> Ret
         {
             using ProxyFunction = Ret(*)(const Delegate*, Args&&...);
 
-            static constexpr auto arguments     = detail::typeName<Ret(*)(Args...)>();
-            static constexpr auto argumentsHash = traits::function_hash<Ret(*)(Args...)>;
+            constexpr auto arguments     = detail::typeName<Ret(*)(Args...)>();
+            constexpr auto argumentsHash = traits::function_hash<Ret(*)(Args...)>;
+
+            static const auto* data = arguments.data();
+
+            constexpr ArgsDescription<argumentsHash, data> t{};
 
             const auto function = _wrapper(arguments, argumentsHash, true);
             const auto proxy    = reinterpret_cast<ProxyFunction>(function);
@@ -888,7 +905,7 @@ namespace axl
         [[nodiscard]]
         constexpr bool hasReturnType() const noexcept
         {
-            static constexpr bool hasReturnType = std::is_same_v<R, Ret>;
+            constexpr bool hasReturnType = std::is_same_v<R, Ret>;
 
             return hasReturnType;
         }
@@ -897,12 +914,13 @@ namespace axl
         [[nodiscard]]
         constexpr bool isInvokable() const noexcept
         {
-            using CustomFunctor = Ret(*)(const Delegate*, Args&&...);
+            using ProxyFunction = Ret(*)(const Delegate*, Args&&...);
 
-            static constexpr auto arguments     = typeName<Ret(*)(Args...)>();
-            static constexpr auto argumentsHash = traits::function_hash<Ret(*)(Args...)>;
+            constexpr auto arguments     = detail::typeName<Ret(*)(Args...)>();
+            constexpr auto argumentsHash = traits::function_hash<Ret(*)(Args...)>;
 
-            const auto proxy = std::invoke(_wrapper, arguments, argumentsHash, false);
+            const auto function = _wrapper(arguments, argumentsHash, false);
+            const auto proxy    = reinterpret_cast<ProxyFunction>(function);
 
             return (proxy != nullptr);
         }
@@ -1003,7 +1021,7 @@ namespace axl
         {
             const auto function = reinterpret_cast<decltype(target)>(_function);
 
-            return _wrapper == &executeStatelessCallable<R2, Args>
+            return _wrapper == &executeStatelessCallable<R2, Args...>
                 && function == target;
         }
 
@@ -1011,7 +1029,9 @@ namespace axl
         template<class R2, class... Args>
         void bind(std::function<R2(Args...)>&& target) noexcept
         {
-            _function = reinterpret_cast<void(*)()>(target.target<R2(*)(Args...)>());
+            using Target = R2(*)(Args...);
+
+            _function = reinterpret_cast<void(*)()>(target.template target<Target>());
             _wrapper  = &executeStatelessCallable<R2, Args...>;
 
             if (!target)
@@ -1024,9 +1044,9 @@ namespace axl
                 // The target cannot be converted to a function pointer
                 // Thus, we try to save it into a lambda if our storage is large enough
 
-                static_assert(sizeof(target) <= sizeof(_allocator));
+                static_assert(sizeof(target) <= sizeof(_storage));
 
-                *this = [f = DELEGATE_FWD(target)](Args&&... args)->R2 {
+                *this = [f = DELEGATE_FWD(target)](Args&&... args) -> R2 {
                     return f(std::forward<Args>(args)...);
                 };
             }
@@ -1123,9 +1143,9 @@ namespace axl
             const bool throwOnMismatch
         ) -> AnyTarget
         {
-            using Functor = traits::delegate_proxy_t<decltype(Target), Delegate>;
+            using ProxyFunction = traits::delegate_proxy_t<decltype(Target), Delegate>;
 
-            constexpr Functor proxy = [](const Delegate*, auto&&... args) -> Ret {
+            constexpr ProxyFunction proxy = [](const Delegate*, auto&&... args) -> Ret {
                 return invoke(Target, DELEGATE_FWD(args)...);
             };
 
@@ -1139,9 +1159,9 @@ namespace axl
             const bool throwOnMismatch
         ) -> AnyTarget
         {
-            using Functor = traits::delegate_proxy_t<decltype(Target), Delegate>;
+            using ProxyFunction = traits::delegate_proxy_t<decltype(Target), Delegate>;
 
-            constexpr Functor proxy = [](const Delegate* self, auto&&... args) -> Ret
+            constexpr ProxyFunction proxy = [](const Delegate* self, auto&&... args) -> Ret
             {
                 const auto& instance = [](const Delegate* self) constexpr -> T&
                 {
@@ -1164,9 +1184,9 @@ namespace axl
             const bool throwOnMismatch
         ) -> AnyTarget
         {
-            using Functor = traits::delegate_proxy_t<Target, Delegate>;
+            using ProxyFunction = traits::delegate_proxy_t<F, Delegate>;
 
-            constexpr Functor proxy = [](const Delegate* self, auto&&... args) -> Ret
+            constexpr ProxyFunction proxy = [](const Delegate* self, auto&&... args) -> Ret
             {
                 const auto target = [](const Delegate* self) constexpr -> F*
                 {
@@ -1189,9 +1209,9 @@ namespace axl
             const bool throwOnMismatch
         ) -> AnyTarget
         {
-            using Functor = traits::delegate_proxy_t<Target, Delegate>;
+            using ProxyFunction = traits::delegate_proxy_t<F, Delegate>;
 
-            constexpr Functor proxy = [](const Delegate*, auto&&... args) -> Ret {
+            constexpr ProxyFunction proxy = [](const Delegate*, auto&&... args) -> Ret {
                 return invoke(F{}, DELEGATE_FWD(args)...);
             };
 
@@ -1205,9 +1225,9 @@ namespace axl
             const bool throwOnMismatch
         ) -> AnyTarget
         {
-            using Functor = traits::delegate_proxy_t<Target, Delegate>;
+            using ProxyFunction = traits::delegate_proxy_t<F, Delegate>;
 
-            constexpr Functor proxy = [](const Delegate* self, auto&&... args) -> Ret
+            constexpr ProxyFunction proxy = [](const Delegate* self, auto&&... args) -> Ret
             {
                 const auto& target = *std::launder(reinterpret_cast<const F*>(_storage));
 
@@ -1310,7 +1330,7 @@ namespace axl
 
         template<class R2, class... UArgs,
                  typename = std::enable_if_t<(
-                     std::is_invocable_r_v<Ret, std::function(R2(UArgs...)), Args...>
+                     std::is_invocable_r_v<Ret, std::function<R2(UArgs...)>, Args...>
                  )>>
         explicit Delegate(std::function<R2(UArgs...)>&& target) noexcept
         {
@@ -1399,13 +1419,13 @@ namespace axl
                  )>>
         constexpr Delegate(R(*target)(UArgs...)) noexcept
             : _function { reinterpret_cast<void (*)()>(target)        }
-            , _proxy    { &executeStatelessCallable<decltype(target)> }
+            , _proxy    { &executeStatelessCallable<R, UArgs...> }
         {}
 
     public:
         template<class R2, class... UArgs,
                  typename = std::enable_if_t<(
-                     std::is_invocable_r_v<Ret, std::function(R2(UArgs...)), Args...>
+                     std::is_invocable_r_v<Ret, std::function<R2(UArgs...)>, Args...>
                  )>>
         void operator=(std::function<R2(UArgs...)>&& target) noexcept
         {
@@ -1516,7 +1536,7 @@ namespace axl
         [[nodiscard]]
         constexpr bool hasReturnType() const noexcept
         {
-            static constexpr bool hasReturnType = std::is_same_v<R, Ret>;
+            constexpr bool hasReturnType = std::is_same_v<R, Ret>;
 
             return hasReturnType;
         }
@@ -1525,7 +1545,7 @@ namespace axl
         [[nodiscard]]
         constexpr bool isInvokable() const noexcept
         {
-            static constexpr bool isInvokable = std::is_invocable_r_v<Ret, Ret(*)(Args...), UArgs...>;
+            constexpr bool isInvokable = std::is_invocable_r_v<Ret, Ret(*)(Args...), UArgs...>;
 
             return isInvokable;
         }
@@ -1631,26 +1651,28 @@ namespace axl
 
         template<class R2, class...UArgs,
                  typename = std::enable_if_t<(
-                     std::is_invocable_r_v<R, R2(*)(UArgs...), Args...>
+                     std::is_invocable_r_v<Ret, R2(*)(UArgs...), Args...>
                  )>>
         [[nodiscard]]
         constexpr bool hasTarget(R2(*target)(UArgs...)) const noexcept
         {
             const auto function = reinterpret_cast<decltype(target)>(_function);
 
-            return _proxy == &executeStatelessCallable<R2, UArgs>
+            return _proxy == &executeStatelessCallable<R2, UArgs...>
                 && function == target;
         }
 
     public:
         template<class R2, class... UArgs,
                  typename = std::enable_if_t<(
-                     std::is_invocable_r_v<Ret, std::function(R2(UArgs...)), Args...>
+                     std::is_invocable_r_v<Ret, std::function<R2(UArgs...)>, Args...>
                  )>>
         void bind(std::function<R2(UArgs...)>&& target) noexcept
         {
-            _function = reinterpret_cast<void(*)()>(target.target<R2(*)(UArgs...)>());
-            _proxy  = &executeStatelessCallable<R2, UArgs...>;
+            using Target = R2(*)(UArgs...);
+
+            _function = reinterpret_cast<void(*)()>(target.template target<Target>());
+            _proxy    = &executeStatelessCallable<R2, UArgs...>;
 
             if (!target)
             {
@@ -1662,7 +1684,7 @@ namespace axl
                 // The target cannot be converted to a function pointer
                 // Thus, we try to save it into a lambda if our storage is large enough
 
-                static_assert(sizeof(target) <= sizeof(_allocator));
+                static_assert(sizeof(target) <= sizeof(_storage));
 
                 *this = [f = DELEGATE_FWD(target)](UArgs&&... args) -> R2 {
                     return f(std::forward<UArgs>(args)...);
@@ -1762,7 +1784,7 @@ namespace axl
         constexpr void bind(R(*target)(UArgs...)) noexcept
         {
             _function = reinterpret_cast<void (*)()>(target);
-            _proxy    = &executeStatelessCallable<decltype(target)>;
+            _proxy    = &executeStatelessCallable<R, UArgs...>;
         }
 
     private:
@@ -1844,7 +1866,7 @@ namespace axl
             const void* _constInstance;
             AnyTarget   _function;
 
-            alignas(Alignment) std::byte _storage[BufferSize] { };
+            alignas(Alignment) std::byte _storage[BufferSize] {};
         };
 
         using ProxyFunction = Ret(*)(const Delegate*, Args&&...);
