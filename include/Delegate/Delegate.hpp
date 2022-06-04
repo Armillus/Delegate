@@ -232,7 +232,7 @@ namespace axl
     namespace traits
     {
         /* ============================================================= */
-        /* is_function
+        /* is_object
         /* ============================================================= */
 
         template<class F>
@@ -869,14 +869,41 @@ namespace axl
         }
 
     public:
-        struct FixedString
+        template<size_t Size>
+        class FixedString
         {
+        public:
+            constexpr FixedString(std::string_view str) noexcept
+                : FixedString(str.data())
+            {}
+            
+            constexpr FixedString(const char (&str)[Size]) noexcept
+            {
+                std::copy_n(str, Size, _buffer);
+            }
+            
+            constexpr FixedString(const char* str) noexcept
+            {
+                std::copy_n(str, Size, _buffer);
+            }
 
+            // Conversion operators
+            constexpr const char* operator() const noexcept { return _buffer; }
+
+            // Static helpers
+            template<class F>
+            static constexpr FixedString create() noexcept
+            {
+                return { detail::typeName<F>() };
+            }
+
+        private:
+            char _buffer[Size + 1] = {};
         };
 
-        // TODO: pass templated structure to the wrapper to force arguments handlign at compile time
-        template<std::size_t Hash, const char* Arguments>
-        struct ArgsDescription {};
+        // TODO: pass templated structure to the wrapper to force arguments handling at compile time
+        template<std::size_t Hash, FixedString Type>
+        struct Arguments {};
 
         template<class... Args>
         constexpr auto operator ()(Args&&... args) const -> Ret
