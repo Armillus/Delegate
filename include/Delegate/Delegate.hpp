@@ -1,7 +1,7 @@
-/// @author  Armillus (Axel M. | https://github.com/Armillus)
+/// @author  Armillus (https://github.com/Armillus)
 /// @project Delegate
 
-// Copyright (c) 2022 Axel Millot <millotaxel71@gmail.com>.
+// Copyright (c) 2022 Armillus.
 //
 // Permission is hereby  granted, free of charge, to any  person obtaining a copy
 // of this software and associated  documentation files (the "Software"), to deal
@@ -48,6 +48,7 @@
 #include <stdexcept>
 #include <algorithm>
 #include <cstring>
+#include <array>
 
 // +--------------------------------------------------------------------------+
 // | All of the code below is a mix of different inspirations such as:        |
@@ -144,8 +145,71 @@ static_assert(
 
 namespace axl
 {
-     namespace detail
+    namespace detail
     {
+        /* ============================================================= */
+        /* FixedString
+        /* ============================================================= */
+        
+        template<std::size_t Size>
+        class FixedString
+        {
+        public:
+            constexpr FixedString() noexcept = default;
+            
+            constexpr FixedString(const char (&str)[Size + 1]) noexcept
+            {
+                std::copy(std::begin(str), std::end(str), _buffer.begin());
+            }
+
+            /* ------------------------------------------------------------- */
+            /* Conversions
+            /* ------------------------------------------------------------- */
+            constexpr operator std::string_view() const noexcept { return { _buffer, Size }; }
+
+            /* ------------------------------------------------------------- */
+            /* Properties
+            /* ------------------------------------------------------------- */
+
+            [[nodiscard]] constexpr bool empty()  const noexcept { return Size == 0; }
+            [[nodiscard]] constexpr auto size()   const noexcept { return Size;      }
+            [[nodiscard]] constexpr auto lentgh() const noexcept { return Size;      }
+
+            /* ------------------------------------------------------------- */
+            /* String matching
+            /* ------------------------------------------------------------- */
+
+            constexpr bool endsWith(std::string_view suffix) const noexcept { return sv().ends_with(suffix); }
+            constexpr bool endsWith(const char* suffix)      const noexcept { return sv().ends_with(suffix); }
+            constexpr bool endsWith(const char suffix)       const noexcept { return sv().ends_with(suffix); }
+
+            constexpr bool startsWith(std::string_view prefix) const noexcept { return sv().starts_with(prefix); }
+            constexpr bool startsWith(const char* prefix)      const noexcept { return sv().starts_with(prefix); }
+            constexpr bool startsWith(const char prefix)       const noexcept { return sv().starts_with(prefix); }
+
+        private:
+            /* ------------------------------------------------------------- */
+            /* Internal helpers
+            /* ------------------------------------------------------------- */
+
+            constexpr std::string_view sv() const noexcept { return *this; }
+
+        private:
+            std::array<char, Size + 1> _buffer {};
+        };
+
+        /* ------------------------------------------------------------- */
+        /* Deduction guide to build FixedStrings without the usual '\0'
+        /* at the end of the string.
+        /* ------------------------------------------------------------- */
+
+        template<std::size_t Size>
+        FixedString(const char(&)[Size]) -> FixedString<Size - 1>;
+
+        /* ============================================================= */
+        /* Compile-time string hashing
+        /* ============================================================= */
+
         template<std::size_t N>
         [[nodiscard]]
         constexpr std::uint32_t hash(std::uint32_t prime, const char (&s)[N], std::size_t len = N - 1) noexcept
@@ -179,6 +243,10 @@ namespace axl
 
             return hash(defaultPrimeNumber, s);
         }
+
+        /* ============================================================= */
+        /* Function reflexion
+        /* ============================================================= */
 
         constexpr auto prettifyName(std::string_view s) noexcept -> std::string_view
         {
@@ -869,42 +937,6 @@ namespace axl
         }
 
     public:
-        template<size_t Size>
-        class FixedString
-        {
-        public:
-            constexpr FixedString(std::string_view str) noexcept
-                : FixedString(str.data())
-            {}
-            
-            constexpr FixedString(const char (&str)[Size]) noexcept
-            {
-                std::copy_n(str, Size, _buffer);
-            }
-            
-            constexpr FixedString(const char* str) noexcept
-            {
-                std::copy_n(str, Size, _buffer);
-            }
-
-            // Conversion operators
-            constexpr const char* operator() const noexcept { return _buffer; }
-
-            // Static helpers
-            template<class F>
-            static constexpr FixedString create() noexcept
-            {
-                return { detail::typeName<F>() };
-            }
-
-        private:
-            char _buffer[Size + 1] = {};
-        };
-
-        // TODO: pass templated structure to the wrapper to force arguments handling at compile time
-        template<std::size_t Hash, FixedString Type>
-        struct Arguments {};
-
         template<class... Args>
         constexpr auto operator ()(Args&&... args) const -> Ret
         {
@@ -912,10 +944,6 @@ namespace axl
 
             constexpr auto arguments     = detail::typeName<Ret(*)(Args...)>();
             constexpr auto argumentsHash = traits::function_hash<Ret(*)(Args...)>;
-
-            static const auto* data = arguments.data();
-
-            constexpr ArgsDescription<argumentsHash, data> t{};
 
             const auto function = _wrapper(arguments, argumentsHash, true);
             const auto proxy    = reinterpret_cast<ProxyFunction>(function);
