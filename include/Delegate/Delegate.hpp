@@ -157,6 +157,11 @@ namespace axl
         public:
             constexpr FixedString() noexcept = default;
             
+            constexpr FixedString(std::string_view str) noexcept
+            {
+                std::copy_n(str.begin(), str.size(), _buffer.begin());
+            }
+
             constexpr FixedString(const char (&str)[Size + 1]) noexcept
             {
                 std::copy(std::begin(str), std::end(str), _buffer.begin());
@@ -937,6 +942,221 @@ namespace axl
         }
 
     public:
+        class FunctionArgument
+        {
+        public:
+            constexpr FunctionArgument(std::string_view representation)
+                : _representation { representation }
+            {}
+
+            constexpr bool isConst() const noexcept
+            {
+                return _representation.starts_with("const ");
+            }
+
+            constexpr bool isVolatile() const noexcept
+            {
+                return _representation.starts_with("volatile ");
+            }
+
+            constexpr bool isReference() const noexcept
+            {
+                return isRValueReference() || isLValueReference();
+            }
+
+            constexpr bool isLValueReference() const noexcept
+            {
+                return !isRValueReference() && _representation.ends_with('&');
+            }
+
+            constexpr bool isRValueReference() const noexcept
+            {
+                return _representation.ends_with("&&");
+            }
+
+        private:
+            std::string_view _representation;
+        };
+
+        class FunctionSignature
+        {
+        public:
+            constexpr FunctionSignature(std::string_view representation) noexcept
+                : _representation { representation }
+            {}
+
+            constexpr auto numberOfArguments() const noexcept -> std::size_t
+            {
+                std::size_t separators = 0;
+        
+                for (std::size_t offset = 0; offset != std::string_view::npos; )
+                {
+                    if (offset = _representation.find(',', offset); offset != std::string_view::npos)
+                        separators += 1;
+                }
+
+                return separators;
+            }
+
+            constexpr auto nthArgument(std::size_t index) const noexcept -> FunctionArgument
+            {
+                for (std::size_t offset = 0, separators = 0; ;)
+                {
+                    if (offset = _representation.find(',', offset); offset == std::string_view::npos)
+                        break;
+
+                    if (++separators == index)
+                    {
+                        const std::size_t end = _representation.find(',', offset);
+                
+                        return _representation.substr(offset, end);
+                    }
+                }
+
+                return {};
+            }
+
+        private:
+            std::string_view _representation;
+        };
+
+        template<class R, class... Args>
+        struct MetaFunction
+        {
+            static constexpr bool isCompatibleWithDecayedSignature(FunctionSignature decayedSignature) const noexcept
+            {
+                constexpr auto ownDecayedSignature = axl::detail::typeName<std::decay_t<R(*)(Args...)>>();
+
+                return ownDecayedSignature == decayedSignature;
+            }
+            
+            static constexpr auto getInvokedSignatureType(FunctionSignature invokedSignature) const noexcept
+            {
+                constexpr auto signature = detail::typeName<R(*)(Args...)>();
+                using Indices = std::make_index_sequence<sizeof...(Args)>();
+
+                return toFunctionPointer(getInvokedParameterType<Args, Indices>(invokedSignature.nthArgument(Indices))...);
+                
+                // 1. Split the signature into a list of std::string_view
+                // 2. Returns something like this:
+                //      to_function_pointer(transform<Args, Indices>(list)...)
+            }
+
+        private:
+            template<class Arg, std::size_t Idx>
+            static constexpr auto getInvokedParameterType(FunctionArgument target) const noexcept
+            {
+                if constexpr (std::is_lvalue_reference_v<Arg>)
+                {
+                    // The original argument is a lvalue, so the target needs to be a lvalue too,
+                    // otherwise it will result in an Undefined Behavior.
+
+                    static_assert(
+                        target.isLValueReference(),
+                        "[Delegate] A function taking a T& as parameter cannot be invoked with a T or T&&."
+                    );
+
+                    static_assert(
+                        !target.isConst(),
+                        "[Delegate] A function taking a T& as parameter cannot be invoked with a const T&."
+                    );
+            
+                    static_assert(
+                        !target.isVolatile(),
+                        "[Delegate] A function taking a T& as parameter cannot be invoked with a volatile T&."
+                    );
+
+                    // The argument is a lvalue, as expected
+                    return std::type_identity_t<Arg>();
+                }
+        
+                if constexpr (std::is_rvalue_reference_v<Arg>)
+                {
+                    // The original argument is a Arg&&, so the target needs to be either an Arg&& or an Arg,
+                    // since lvalues are not transformable into rvalues.
+
+                    static_assert(
+                        !target.isLValueReference(),
+                        "[Delegate] A function taking a T&& as parameter cannot be invoked with a T&."
+                    );
+            
+                    static_assert(
+                        !target.isConst(),
+                        "[Delegate] A function taking a T& as parameter cannot be invoked with a const T&&."
+                    );
+            
+                    static_assert(
+                        !target.isVolatile(),
+                        "[Delegate] A function taking a T& as parameter cannot be invoked with a volatile T&&."
+                    );
+
+                    if constexpr (target.isRValueReference())
+                    {
+                        // The argument is a rvalue, as expected
+                        return std::type_identity_t<Arg>;
+                    }
+
+                    static_assert(
+                        std::is_move_constructible_v<Arg>,
+                        "[Delegate] A function taking T&& as a parameter and invoked with T requires from T that it is movable."
+                    );
+
+                    // If the function is invoked with a non-reference, it entails that a move will
+                    // be made at some point.
+                    return std::type_identity_t<std::remove_reference_t<Arg>>;
+                }
+
+                if constexpr (target.isLValueReference())
+                {
+                    static_assert(
+                        std::is_copy_constructible_v<Arg>,
+                        "[Delegate] A function taking T as a parameter and invoked with T& requires from T that it is copyable."
+                    );
+
+                    // If the function is invoked with a lvalue reference, it entails that a copy will
+                    // be made at some point.
+                    return addCVQualifiersIfRequired<std::add_lvalue_reference_t<Arg>>(target);
+                }
+
+                if constexpr (target.isRValueReference())
+                {
+                    static_assert(
+                        std::is_move_constructible_v<Arg>,
+                        "[Delegate] A function taking T as a parameter and invoked with T&& requires from T that it is movable."
+                    );
+
+                    // If the function is invoked with a rvalue reference, it entails that a move will
+                    // be made at some point.
+                    return addCVQualifiersIfRequired<std::add_rvalue_reference_t<Arg>>(target);
+                }
+
+                // The argument is not a reference, as expected
+                return addCVQualifiersIfRequired<Arg>(target);
+            }
+
+            template<class Arg>
+            static constexpr auto addCVQualifiersIfRequired(FunctionArgument target) const noexcept
+            {
+                constexpr bool isConst    = target.isConst();
+                constexpr bool isVolatile = target.isVolatile();
+
+                if constexpr (isConst && isVolatile)
+                    return std::type_identity_t<std::add_cv_t<Arg>>;
+                if constexpr (isConst)
+                    return std::type_identity_t<std::add_const_t<Arg>>;
+                if constexpr (isVolatile)
+                    return std::type_identity_t<std::add_volatile_t<Arg>>;
+
+                return std::type_identity_t<Arg>;
+            }
+
+            template<class R, class... Args>
+            static constexpr auto toFunctionPointer(std::type_identity_t<Args>... args) const noexcept
+            {
+                return static_cast<R(*)(Args...)>(nullptr);
+            }
+        };
+
         template<class... Args>
         constexpr auto operator ()(Args&&... args) const -> Ret
         {
@@ -944,6 +1164,8 @@ namespace axl
 
             constexpr auto arguments     = detail::typeName<Ret(*)(Args...)>();
             constexpr auto argumentsHash = traits::function_hash<Ret(*)(Args...)>;
+
+            constexpr detail::FixedString<arguments.size()> representation(arguments);
 
             const auto function = _wrapper(arguments, argumentsHash, true);
             const auto proxy    = reinterpret_cast<ProxyFunction>(function);
@@ -1186,21 +1408,21 @@ namespace axl
 
     private:
         [[noreturn]]
-        static constexpr auto throwBadCall(const std::string_view, const std::size_t, const bool) -> AnyTarget
+        static constexpr auto throwBadCall(detail::FixedString, detail::FixedString, const bool) -> AnyTarget
         {
             throw BadDelegateCall();
         }
 
         template<auto Target>
         static constexpr auto executeFunction(
-            const std::string_view arguments,
-            const std::size_t argumentsHash,
+            detail::FixedString,
+            detail::FixedString,
             const bool throwOnMismatch
         ) -> AnyTarget
         {
             using ProxyFunction = traits::delegate_proxy_t<decltype(Target), Delegate>;
 
-            constexpr ProxyFunction proxy = [](const Delegate*, auto&&... args) -> Ret {
+            constexpr ProxyFunction proxy = [](const Delegate*, auto&&... args) constexpr -> Ret {
                 return invoke(Target, DELEGATE_FWD(args)...);
             };
 
@@ -1209,14 +1431,14 @@ namespace axl
 
         template<class T, auto T::*Target>
         static constexpr auto executeMemberFunction(
-            const std::string_view arguments,
-            const std::size_t argumentsHash,
+            detail::FixedString,
+            detail::FixedString,
             const bool throwOnMismatch
         ) -> AnyTarget
         {
             using ProxyFunction = traits::delegate_proxy_t<decltype(Target), Delegate>;
 
-            constexpr ProxyFunction proxy = [](const Delegate* self, auto&&... args) -> Ret
+            constexpr ProxyFunction proxy = [](const Delegate* self, auto&&... args) constexpr -> Ret
             {
                 const auto& instance = [](const Delegate* self) constexpr -> T&
                 {
@@ -1234,14 +1456,14 @@ namespace axl
 
         template<class F>
         static constexpr auto executeCallableView(
-            const std::string_view arguments,
-            const std::size_t argumentsHash,
+            detail::FixedString,
+            detail::FixedString,
             const bool throwOnMismatch
         ) -> AnyTarget
         {
             using ProxyFunction = traits::delegate_proxy_t<F, Delegate>;
 
-            constexpr ProxyFunction proxy = [](const Delegate* self, auto&&... args) -> Ret
+            constexpr ProxyFunction proxy = [](const Delegate* self, auto&&... args) constexpr -> Ret
             {
                 const auto target = [](const Delegate* self) constexpr -> F*
                 {
@@ -1259,14 +1481,14 @@ namespace axl
 
         template<class F>
         static constexpr auto executeEmptyCallable(
-            const std::string_view arguments,
-            const std::size_t argumentsHash,
+            detail::FixedString,
+            detail::FixedString,
             const bool throwOnMismatch
         ) -> AnyTarget
         {
             using ProxyFunction = traits::delegate_proxy_t<F, Delegate>;
 
-            constexpr ProxyFunction proxy = [](const Delegate*, auto&&... args) -> Ret {
+            constexpr ProxyFunction proxy = [](const Delegate*, auto&&... args) constexpr -> Ret {
                 return invoke(F{}, DELEGATE_FWD(args)...);
             };
 
@@ -1275,14 +1497,14 @@ namespace axl
 
         template<class F>
         static constexpr auto executeStatefulCallable(
-            const std::string_view arguments,
-            const std::size_t argumentsHash,
+            detail::FixedString,
+            detail::FixedString,
             const bool throwOnMismatch
         ) -> AnyTarget
         {
             using ProxyFunction = traits::delegate_proxy_t<F, Delegate>;
 
-            constexpr ProxyFunction proxy = [](const Delegate* self, auto&&... args) -> Ret
+            constexpr ProxyFunction proxy = [](const Delegate* self, auto&&... args) constexpr -> Ret
             {
                 const auto& target = *std::launder(reinterpret_cast<const F*>(_storage));
 
@@ -1294,12 +1516,16 @@ namespace axl
 
         template<class R, class... Args>
         static constexpr auto executeStatelessCallable(
-            const std::string_view arguments,
-            const std::size_t argumentsHash,
+            detail::FixedString invokedSignature,
+            detail::FixedString decayedSignature,
             const bool throwOnMismatch
         ) -> AnyTarget
         {
-            constexpr auto proxy = +[](const Delegate* self, Args&&... args) -> Ret
+            constexpr auto* functionType = getProxyFunctionType<R(*)(Args...)>(invokedSignature);
+
+            using FunctionProxy = decltype(functionType);
+
+            constexpr FunctionProxy proxy = +[](const Delegate* self, auto&&... args) constexpr -> Ret
             {
                 const auto target = reinterpret_cast<R(*)(Args...)>(self->_function);
 
@@ -1309,19 +1535,16 @@ namespace axl
             return getMatchingFunctor<R(*)(Args...), proxy>(arguments, argumentsHash, throwOnMismatch);
         }
 
-        template<class Target, auto Functor>
+        template<class Target, auto Functor, class R, class Args...>
         static constexpr auto getMatchingFunctor(
-            const std::string_view arguments,
-            const std::size_t argumentsHash,
+            detail::FixedString invokedSignature,
+            detail::FixedString decayedSignature,
             const bool throwOnMismatch
         ) -> AnyTarget
         {
-            using Signature = traits::function_signature<Target>;
+            using MetaFunction = MetaFunction<R, Args...>;
 
-            constexpr auto acceptableArguments     = detail::typeName<Signature>();
-            constexpr auto acceptableArgumentsHash = traits::function_hash<Target>;
-
-            if (acceptableArgumentsHash != argumentsHash)
+            if (MetaFunction metaFunction; !metaFunction.isCompatibleWithDecayedSignature(decayedSignature))
             {
                 if (throwOnMismatch)
                     throw BadDelegateArguments(acceptableArguments, arguments);
@@ -1341,6 +1564,16 @@ namespace axl
                 return std::invoke(DELEGATE_FWD(target), DELEGATE_FWD(args)...);
         }
 
+        template<class F>
+        static constexpr auto getProxyFunctionType(detail::FixedString invokedSignature) noexcept
+        {
+            using FunctionProxy = traits::delegate_proxy_t<F, Delegate>;
+
+            return [&]<class R, class Args...>(R (*)(Args...)) {
+                return MetaFunction<R, Args...>().getInvokedSignatureType(invokedSignature);
+            }(reinterpret_cast<FunctionProxy>(nullptr));
+        }
+
     protected:
         union
         {
@@ -1348,10 +1581,10 @@ namespace axl
             const void* _constInstance;
             AnyTarget   _function;
 
-            alignas(Alignment) std::byte _storage[BufferSize] { };
+            constinit alignas(Alignment) std::byte _storage[BufferSize] { };
         };
 
-        using Wrapper = AnyTarget(*)(const std::string_view, const std::size_t, const bool);
+        using Wrapper = AnyTarget(*)(detail::FixedString, detail::FixedString, const bool) constexpr;
 
         Wrapper _wrapper { &throwBadCall };
     };
@@ -1921,7 +2154,7 @@ namespace axl
             const void* _constInstance;
             AnyTarget   _function;
 
-            alignas(Alignment) std::byte _storage[BufferSize] {};
+            constinit alignas(Alignment) std::byte _storage[BufferSize] {};
         };
 
         using ProxyFunction = Ret(*)(const Delegate*, Args&&...);
