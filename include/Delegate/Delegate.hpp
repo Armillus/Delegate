@@ -49,6 +49,10 @@
 #include <algorithm>
 #include <cstring>
 #include <array>
+#include <variant>
+#include <tuple>
+#include <utility>
+#include <optional>
 
 // +--------------------------------------------------------------------------+
 // | All of the code below is a mix of different inspirations such as:        |
@@ -184,13 +188,27 @@ namespace axl
             /* String matching
             /* ------------------------------------------------------------- */
 
-            constexpr bool endsWith(std::string_view suffix) const noexcept { return sv().ends_with(suffix); }
-            constexpr bool endsWith(const char* suffix)      const noexcept { return sv().ends_with(suffix); }
-            constexpr bool endsWith(const char suffix)       const noexcept { return sv().ends_with(suffix); }
+            [[nodiscard]] constexpr bool endsWith(std::string_view suffix) const noexcept { return sv().ends_with(suffix); }
+            [[nodiscard]] constexpr bool endsWith(const char* suffix)      const noexcept { return sv().ends_with(suffix); }
+            [[nodiscard]] constexpr bool endsWith(const char suffix)       const noexcept { return sv().ends_with(suffix); }
 
-            constexpr bool startsWith(std::string_view prefix) const noexcept { return sv().starts_with(prefix); }
-            constexpr bool startsWith(const char* prefix)      const noexcept { return sv().starts_with(prefix); }
-            constexpr bool startsWith(const char prefix)       const noexcept { return sv().starts_with(prefix); }
+            [[nodiscard]] constexpr bool startsWith(std::string_view prefix) const noexcept { return sv().starts_with(prefix); }
+            [[nodiscard]] constexpr bool startsWith(const char* prefix)      const noexcept { return sv().starts_with(prefix); }
+            [[nodiscard]] constexpr bool startsWith(const char prefix)       const noexcept { return sv().starts_with(prefix); }
+
+            //template<std::size_t Len>
+            //[[nodiscard]] constexpr auto find(const same_with_other_size<Len>& str, size_type pos = 0) const noexcept
+            //{
+            //    if constexpr (Len > Size)
+            //        return std::string_view::npos;
+
+            //    return sv().find(str.sv(), pos);
+            //}
+
+            //[[nodiscard]] constexpr auto find(std::string_view sv, std::size_t pos = 0)      const noexcept { return sv().find(sv, pos);   }
+            //[[nodiscard]] constexpr auto find(const char* s, std::size_t pos, std::size_t n) const          { return sv().find(s, pos, n); }
+            //[[nodiscard]] constexpr auto find(const char* s, std::size_t pos = 0)            const          { return sv().find(s, pos);    }
+            //[[nodiscard]] constexpr auto find(char c, std::size_t pos = 0)                   const noexcept { return sv().find(c, pos);    }
 
         private:
             /* ------------------------------------------------------------- */
@@ -688,6 +706,451 @@ namespace axl
     } // !namespace detail
 
 
+        struct FunctionArgument
+        {
+            template<class Arg>
+            static constexpr auto fromConcreteArg() noexcept -> FunctionArgument
+            {
+                return {
+                    std::is_const_v<Arg>,
+                    std::is_volatile_v<Arg>,
+                    std::is_rvalue_reference_v<Arg>,
+                    std::is_lvalue_reference_v<Arg>
+                };
+            }
+
+            constexpr FunctionArgument() noexcept = default;
+
+            constexpr FunctionArgument(std::string_view representation) noexcept
+                : isConst    { representation.find("const ") != std::string_view::npos           }
+                , isVolatile { representation.find("volatile ") != std::string_view::npos        }
+                , isRValue   { representation.find("&&") != std::string_view::npos               }
+                , isLValue   { !isRValue && representation.find("&") != std::string_view::npos   }
+            {}
+
+            constexpr FunctionArgument(bool isConst, bool isVolatile, bool isLValue, bool isRValue) noexcept
+                : isConst    { isConst    }
+                , isVolatile { isVolatile }
+                , isRValue   { isRValue   }
+                , isLValue   { isLValue   }
+            {}
+
+            bool isConst;
+            bool isVolatile;
+            bool isRValue;
+            bool isLValue;
+        };
+
+        class FunctionSignature
+        {
+        public:
+            constexpr FunctionSignature(std::string_view representation) noexcept
+                : _representation { representation }
+            {}
+
+            constexpr auto numberOfArguments() const noexcept -> std::size_t
+            {
+                std::size_t separators = 0;
+        
+                for (std::size_t offset = 0; offset != std::string_view::npos; )
+                {
+                    if (offset = _representation.find(',', offset); offset != std::string_view::npos)
+                        separators += 1;
+                }
+
+                return separators;
+            }
+
+            constexpr auto nthArgument(std::size_t index) const noexcept -> FunctionArgument
+            {
+                for (std::size_t offset = 0, separators = 0; ;)
+                {
+                    if (offset = _representation.find(',', offset); offset == std::string_view::npos)
+                        break;
+
+                    if (++separators == index)
+                    {
+                        const std::size_t end = _representation.find(',', offset);
+                
+                        return _representation.substr(offset, end);
+                    }
+                }
+
+                return {};
+            }
+
+            constexpr bool operator==(const FunctionSignature& rhs) const noexcept
+            {
+                return _representation == rhs._representation;
+            }
+
+            constexpr auto representation() const noexcept -> std::string_view
+            {
+                return _representation;
+            }
+
+        private:
+            std::string_view _representation;
+        };
+
+        struct IMetaFunction
+        {
+            constexpr virtual ~IMetaFunction() noexcept = default;
+
+            constexpr virtual auto signature() const noexcept -> FunctionSignature = 0;
+            constexpr virtual auto decayedSignature() const noexcept -> FunctionSignature = 0;
+            constexpr virtual auto nthArgument(std::size_t) const noexcept -> FunctionArgument = 0;
+            constexpr virtual auto numberOfArguments() const noexcept -> std::size_t = 0;
+            constexpr virtual bool isCompatibleWith(const IMetaFunction&) const noexcept = 0;
+            
+            template<class F>
+            static constexpr auto fromFunctionType() noexcept
+            {
+                using FunctionPointer = traits::function_pointer_t<F>;
+
+                return []<typename R, typename... Args>(R (*)(Args...)) constexpr
+                {
+                    constexpr MetaFunction<R, Args...> metaFunction {};
+                
+                    return metaFunction;
+                }(reinterpret_cast<FunctionPointer>(nullptr));
+            }
+        };
+
+            template<class Parameter>
+            struct Empty
+            {
+                constexpr Empty(bool) noexcept {};
+            };
+
+            template<class Parameter>
+            using InvokedParameter = std::variant<
+                Parameter,
+                std::add_cv_t<Parameter>,
+                std::add_const_t<Parameter>,
+                std::add_volatile_t<Parameter>,
+
+                std::remove_reference_t<Parameter>,
+                std::remove_reference_t<std::add_cv_t<Parameter>>,
+                std::remove_reference_t<std::add_const_t<Parameter>>,
+                std::remove_reference_t<std::add_volatile_t<Parameter>>,
+
+                std::add_lvalue_reference_t<Parameter>,
+                std::add_lvalue_reference_t<std::add_cv_t<Parameter>>,
+                std::add_lvalue_reference_t<std::add_const_t<Parameter>>,
+                std::add_lvalue_reference_t<std::add_volatile_t<Parameter>>,
+
+                std::add_rvalue_reference_t<Parameter>,
+                std::add_rvalue_reference_t<std::add_cv_t<Parameter>>,
+                std::add_rvalue_reference_t<std::add_const_t<Parameter>>,
+                std::add_rvalue_reference_t<std::add_volatile_t<Parameter>>
+            >;
+
+            enum class InvokedParameterType : std::size_t
+            {
+                Original,
+                CV,
+                Const,
+                Volatile,
+
+                Unreferenced,
+                UnreferencedCV,
+                UnreferencedConst,
+                UnreferencedVolatile,
+
+                LValue,
+                LValueCV,
+                LValueConst,
+                LValueVolatile,
+
+                RValue,
+                RValueCV,
+                RValueConst,
+                RValueVolatile,
+            };
+
+            template<class Arg>
+            using ParameterType = std::variant<
+                std::integral_constant<InvokedParameterType, InvokedParameterType::Original>,
+                std::integral_constant<InvokedParameterType, InvokedParameterType::CV>,
+                std::integral_constant<InvokedParameterType, InvokedParameterType::Const>,
+                std::integral_constant<InvokedParameterType, InvokedParameterType::Volatile>,
+
+                std::integral_constant<InvokedParameterType, InvokedParameterType::Unreferenced>,
+                std::integral_constant<InvokedParameterType, InvokedParameterType::UnreferencedCV>,
+                std::integral_constant<InvokedParameterType, InvokedParameterType::UnreferencedConst>,
+                std::integral_constant<InvokedParameterType, InvokedParameterType::UnreferencedVolatile>,
+
+                std::integral_constant<InvokedParameterType, InvokedParameterType::LValue>,
+                std::integral_constant<InvokedParameterType, InvokedParameterType::LValueCV>,
+                std::integral_constant<InvokedParameterType, InvokedParameterType::LValueConst>,
+                std::integral_constant<InvokedParameterType, InvokedParameterType::LValueVolatile>,
+
+                std::integral_constant<InvokedParameterType, InvokedParameterType::RValue>,
+                std::integral_constant<InvokedParameterType, InvokedParameterType::RValueCV>,
+                std::integral_constant<InvokedParameterType, InvokedParameterType::RValueConst>,
+                std::integral_constant<InvokedParameterType, InvokedParameterType::RValueVolatile>
+            >;
+
+        template<class R, class... Args>
+        class MetaFunction : public IMetaFunction
+        {
+            template<std::size_t N>
+            using NthTypeOf = std::tuple_element_t<N, std::tuple<Args...>>;
+
+        public:
+            constexpr ~MetaFunction() noexcept = default;
+
+            constexpr auto numberOfArguments() const noexcept -> std::size_t override
+            {
+                return sizeof...(Args);
+            }
+
+            constexpr auto signature() const noexcept -> FunctionSignature override
+            {
+                constexpr auto signature = detail::typeName<R(*)(Args...)>();
+
+                return signature;
+            }
+
+            constexpr auto decayedSignature() const noexcept -> FunctionSignature override
+            {
+                constexpr auto signature = detail::typeName<R(*)(Args...)>();
+
+                return signature;
+            }
+            
+            constexpr auto nthArgument(std::size_t i) const noexcept -> FunctionArgument override
+            {
+                return signature().nthArgument(i);
+/*                switch (i)
+                {
+                case 0:  return FunctionArgument::fromConcreteArg<NthTypeOf<0>>();
+                case 1:  return FunctionArgument::fromConcreteArg<NthTypeOf<1>>();
+                case 2:  return FunctionArgument::fromConcreteArg<NthTypeOf<2>>();
+                case 3:  return FunctionArgument::fromConcreteArg<NthTypeOf<3>>();
+                case 4:  return FunctionArgument::fromConcreteArg<NthTypeOf<4>>();
+                case 5:  return FunctionArgument::fromConcreteArg<NthTypeOf<5>>();
+                case 6:  return FunctionArgument::fromConcreteArg<NthTypeOf<6>>();
+                case 7:  return FunctionArgument::fromConcreteArg<NthTypeOf<7>>();
+                case 8:  return FunctionArgument::fromConcreteArg<NthTypeOf<8>>();
+                case 9:  return FunctionArgument::fromConcreteArg<NthTypeOf<9>>();
+                case 10: return FunctionArgument::fromConcreteArg<NthTypeOf<10>>();
+                case 11: return FunctionArgument::fromConcreteArg<NthTypeOf<11>>();
+                case 12: return FunctionArgument::fromConcreteArg<NthTypeOf<12>>();
+                case 13: return FunctionArgument::fromConcreteArg<NthTypeOf<13>>();
+                case 14: return FunctionArgument::fromConcreteArg<NthTypeOf<14>>();
+                case 15: return FunctionArgument::fromConcreteArg<NthTypeOf<15>>();
+                case 16: return FunctionArgument::fromConcreteArg<NthTypeOf<16>>();
+                case 17: return FunctionArgument::fromConcreteArg<NthTypeOf<17>>();
+                case 18: return FunctionArgument::fromConcreteArg<NthTypeOf<18>>();
+                case 19: return FunctionArgument::fromConcreteArg<NthTypeOf<19>>();
+                case 20: return FunctionArgument::fromConcreteArg<NthTypeOf<20>>();
+                default: return FunctionArgument::fromConcreteArg<NthTypeOf<0>>();
+                }   */ 
+
+                //static_assert(false, "Functions with more than 20 arguments are not supported yet.");
+            }
+
+            constexpr bool isCompatibleWith(const IMetaFunction& rhs) const noexcept override
+            {
+                constexpr FunctionSignature ownDecayedSignature = axl::detail::typeName<std::decay_t<R(*)(Args...)>>();
+
+                return ownDecayedSignature == rhs.decayedSignature();
+            }
+            
+            static constexpr decltype(auto) getInvokedSignatureType(const IMetaFunction& rhs) noexcept
+            {
+                /*constexpr auto Indices = std::make_index_sequence<sizeof...(Args)>();
+
+                return []<std::size_t... I> (const IMetaFunction& rhs, std::index_sequence<I...>) {
+                    return [](FunctionArgument args...) {
+                        return toFunctionPointer(getInvokedParameterType<Args>(args)...);
+                    }(rhs.nthArgument(I)...);
+                }(rhs, Indices);*/
+
+                std::size_t i = 0;
+
+                return toFunctionPointer(getInvokedParameterType<Args>(rhs.nthArgument(i++))...);
+
+
+                // 1. Split the signature into a list of std::string_view
+                // 2. Returns something like this:
+                //      to_function_pointer(transform<Args, Indices>(list)...)
+            }
+
+        private:
+            template<class Arg>
+            static constexpr auto getInvokedParameterType(FunctionArgument target) noexcept -> ParameterType<Arg>
+            {
+                if constexpr (std::is_lvalue_reference_v<Arg>)
+                {
+                    // The original argument is a lvalue, so the target needs to be a lvalue too,
+                    // otherwise it will result in an Undefined Behavior.
+
+                    //if (!target.isLValueReference()) {
+                    //    static_assert(false, "[Delegate] A function taking a T& as parameter cannot be invoked with a T or T&&.");
+                    //}
+
+                    //if (target.isConst()) {
+                    //    static_assert(false, "[Delegate] A function taking a T& as parameter cannot be invoked with a const T&.");
+                    //}
+
+                    //if (target.isVolatile()) {
+                    //    static_assert(false, "[Delegate] A function taking a T& as parameter cannot be invoked with a volatile T&.");
+                    //}
+
+                    // The argument is a lvalue, as expected
+                    return addCVQualifiersIfRequired<Arg>(target);
+                }
+        
+                if constexpr (std::is_rvalue_reference_v<Arg>)
+                {
+                    // The original argument is a Arg&&, so the target needs to be either an Arg&& or an Arg,
+                    // since lvalues are not transformable into rvalues.
+
+                    //if (target.isLValueReference()) {
+                    //    static_assert(false, "[Delegate] A function taking a T&& as parameter cannot be invoked with a T&.");
+                    //}
+
+                    //if (target.isConst()) {
+                    //    static_assert(false, "[Delegate] A function taking a T&& as parameter cannot be invoked with a const T&&.");
+                    //}
+
+                    //if (target.isVolatile()) {
+                    //    static_assert(false, "[Delegate] A function taking a T&& as parameter cannot be invoked with a volatile T&&.");
+                    //}
+
+                    if (target.isRValue)
+                    {
+                        // The argument is a rvalue, as expected
+                        return addCVQualifiersIfRequired<Arg>(target);
+                    }
+
+                    static_assert(
+                        std::is_move_constructible_v<Arg>,
+                        "[Delegate] A function taking T&& as a parameter and invoked with T requires from T that it is movable."
+                    );
+
+                    // If the function is invoked with a non-reference, it entails that a move will
+                    // be made at some point.
+                    return addCVQualifiersIfRequired<Arg, std::remove_reference_t<Arg>>(target);
+                }
+
+                if (target.isLValue)
+                {
+                    static_assert(
+                        std::is_copy_constructible_v<Arg>,
+                        "[Delegate] A function taking T as a parameter and invoked with T& requires from T that it is copyable."
+                    );
+
+                    // If the function is invoked with a lvalue reference, it entails that a copy will
+                    // be made at some point.
+                    return addCVQualifiersIfRequired<Arg, std::add_lvalue_reference_t<Arg>>(target);
+                }
+
+                if (target.isRValue)
+                {
+                    static_assert(
+                        std::is_move_constructible_v<Arg>,
+                        "[Delegate] A function taking T as a parameter and invoked with T&& requires from T that it is movable."
+                    );
+
+                    // If the function is invoked with a rvalue reference, it entails that a move will
+                    // be made at some point.
+                    return addCVQualifiersIfRequired<Arg, std::add_rvalue_reference_t<Arg>>(target);
+                }
+
+                // The argument is not a reference, as expected
+                return addCVQualifiersIfRequired<Arg>(target);
+            }
+
+            template<class Arg, class InvokedArg = Arg>
+            // requires std::same_as<std::decay_t<Arg>, std::decay_t<InvokedArg>>
+            static constexpr auto addCVQualifiersIfRequired(FunctionArgument target) noexcept -> ParameterType<Arg>
+            {
+                if (target.isConst && target.isVolatile)
+                {
+                    constexpr auto type = getInvokedParameterType<InvokedArg, true, true>();
+
+                    return ParameterType<Arg>(std::in_place_index_t<static_cast<std::size_t>(type)>);
+                }
+                if (target.isConst)
+                {
+                    constexpr auto type = getInvokedParameterType<InvokedArg, true, false>();
+
+                    return ParameterType<Arg>(std::in_place_index_t<static_cast<std::size_t>(type)>);
+                }
+                if (target.isVolatile)
+                {
+                    constexpr auto type = getInvokedParameterType<InvokedArg, false, true>();
+
+                    return ParameterType<Arg>(std::in_place_index_t<static_cast<std::size_t>(type)>);
+                }
+
+                constexpr auto type = getInvokedParameterType<InvokedArg, false, false>();
+
+                return ParameterType<Arg>(std::in_place_index_t<static_cast<std::size_t>(type)>);
+            }
+
+            template<class InvokedArg, bool IsConst, bool IsVolatile>
+            static constexpr auto getInvokedParameterType() noexcept -> InvokedParameterType
+            {
+                if constexpr (std::is_rvalue_reference_v<InvokedArg>)
+                {
+                    if constexpr (IsConst && IsVolatile)
+                        return InvokedParameterType::RValueCV;
+                    else if constexpr (IsConst)
+                        return InvokedParameterType::RValueConst;
+                    else if constexpr (IsVolatile)
+                        return InvokedParameterType::RValueVolatile;
+                    else
+                        return InvokedParameterType::RValue;
+                }
+                else if constexpr (std::is_lvalue_reference_v<InvokedArg>)
+                {
+                    if constexpr (IsConst && IsVolatile)
+                        return InvokedParameterType::LValueCV;
+                    else if constexpr (IsConst)
+                        return InvokedParameterType::LValueConst;
+                    else if constexpr (IsVolatile)
+                        return InvokedParameterType::LValueVolatile;
+                    else
+                        return InvokedParameterType::LValue;
+                }
+                else
+                {
+                    if constexpr (IsConst && IsVolatile)
+                        return InvokedParameterType::CV;
+                    else if constexpr (IsConst)
+                        return InvokedParameterType::Const;
+                    else if constexpr (IsVolatile)
+                        return InvokedParameterType::Volatile;
+                    else
+                        return InvokedParameterType::Original;
+                }
+            }
+
+            // TODO: Try to serialize the qualifiers to get a FixedString and use it here in a lambda to get the right
+            // type
+            static constexpr decltype(auto) toFunctionPointer(ParameterType<Args>... args) noexcept
+            {
+                /*using OpaqueTuple = std::tuple<decltype(std::visit([](auto v) -> decltype(auto) { return *v; }, args))...>;
+
+                return []<class... Parameters>(std::tuple<Parameters...>*) {
+                    return static_cast<R(*)(Parameters...)>(nullptr);
+                }(reinterpret_cast<OpaqueTuple*>(nullptr));*/
+
+                // const auto opaqueTuple = std::make_tuple(std::visit([](auto v) -> auto { return v; }, args)...);
+                using OpaqueTuple = std::tuple<decltype(std::visit([](auto v) -> decltype(auto) { return v; }, args))... > ;
+
+                return []<class... Parameters>(std::tuple<Parameters...>*) {
+                    return static_cast<R(*)(std::variant_alternative_t<static_cast<std::size_t>(Parameters::value), InvokedParameter<Args>>...)>(nullptr);
+                }(reinterpret_cast<OpaqueTuple*>(nullptr));
+            }
+        };
+
+
     /* ===================================================================== */
     /* BadDelegateCall
     /* --------------------------------------------------------------------- */
@@ -942,232 +1405,23 @@ namespace axl
         }
 
     public:
-        class FunctionArgument
-        {
-        public:
-            constexpr FunctionArgument(std::string_view representation)
-                : _representation { representation }
-            {}
-
-            constexpr bool isConst() const noexcept
-            {
-                return _representation.starts_with("const ");
-            }
-
-            constexpr bool isVolatile() const noexcept
-            {
-                return _representation.starts_with("volatile ");
-            }
-
-            constexpr bool isReference() const noexcept
-            {
-                return isRValueReference() || isLValueReference();
-            }
-
-            constexpr bool isLValueReference() const noexcept
-            {
-                return !isRValueReference() && _representation.ends_with('&');
-            }
-
-            constexpr bool isRValueReference() const noexcept
-            {
-                return _representation.ends_with("&&");
-            }
-
-        private:
-            std::string_view _representation;
-        };
-
-        class FunctionSignature
-        {
-        public:
-            constexpr FunctionSignature(std::string_view representation) noexcept
-                : _representation { representation }
-            {}
-
-            constexpr auto numberOfArguments() const noexcept -> std::size_t
-            {
-                std::size_t separators = 0;
-        
-                for (std::size_t offset = 0; offset != std::string_view::npos; )
-                {
-                    if (offset = _representation.find(',', offset); offset != std::string_view::npos)
-                        separators += 1;
-                }
-
-                return separators;
-            }
-
-            constexpr auto nthArgument(std::size_t index) const noexcept -> FunctionArgument
-            {
-                for (std::size_t offset = 0, separators = 0; ;)
-                {
-                    if (offset = _representation.find(',', offset); offset == std::string_view::npos)
-                        break;
-
-                    if (++separators == index)
-                    {
-                        const std::size_t end = _representation.find(',', offset);
-                
-                        return _representation.substr(offset, end);
-                    }
-                }
-
-                return {};
-            }
-
-        private:
-            std::string_view _representation;
-        };
-
-        template<class R, class... Args>
-        struct MetaFunction
-        {
-            static constexpr bool isCompatibleWithDecayedSignature(FunctionSignature decayedSignature) const noexcept
-            {
-                constexpr auto ownDecayedSignature = axl::detail::typeName<std::decay_t<R(*)(Args...)>>();
-
-                return ownDecayedSignature == decayedSignature;
-            }
-            
-            static constexpr auto getInvokedSignatureType(FunctionSignature invokedSignature) const noexcept
-            {
-                constexpr auto signature = detail::typeName<R(*)(Args...)>();
-                using Indices = std::make_index_sequence<sizeof...(Args)>();
-
-                return toFunctionPointer(getInvokedParameterType<Args, Indices>(invokedSignature.nthArgument(Indices))...);
-                
-                // 1. Split the signature into a list of std::string_view
-                // 2. Returns something like this:
-                //      to_function_pointer(transform<Args, Indices>(list)...)
-            }
-
-        private:
-            template<class Arg, std::size_t Idx>
-            static constexpr auto getInvokedParameterType(FunctionArgument target) const noexcept
-            {
-                if constexpr (std::is_lvalue_reference_v<Arg>)
-                {
-                    // The original argument is a lvalue, so the target needs to be a lvalue too,
-                    // otherwise it will result in an Undefined Behavior.
-
-                    static_assert(
-                        target.isLValueReference(),
-                        "[Delegate] A function taking a T& as parameter cannot be invoked with a T or T&&."
-                    );
-
-                    static_assert(
-                        !target.isConst(),
-                        "[Delegate] A function taking a T& as parameter cannot be invoked with a const T&."
-                    );
-            
-                    static_assert(
-                        !target.isVolatile(),
-                        "[Delegate] A function taking a T& as parameter cannot be invoked with a volatile T&."
-                    );
-
-                    // The argument is a lvalue, as expected
-                    return std::type_identity_t<Arg>();
-                }
-        
-                if constexpr (std::is_rvalue_reference_v<Arg>)
-                {
-                    // The original argument is a Arg&&, so the target needs to be either an Arg&& or an Arg,
-                    // since lvalues are not transformable into rvalues.
-
-                    static_assert(
-                        !target.isLValueReference(),
-                        "[Delegate] A function taking a T&& as parameter cannot be invoked with a T&."
-                    );
-            
-                    static_assert(
-                        !target.isConst(),
-                        "[Delegate] A function taking a T& as parameter cannot be invoked with a const T&&."
-                    );
-            
-                    static_assert(
-                        !target.isVolatile(),
-                        "[Delegate] A function taking a T& as parameter cannot be invoked with a volatile T&&."
-                    );
-
-                    if constexpr (target.isRValueReference())
-                    {
-                        // The argument is a rvalue, as expected
-                        return std::type_identity_t<Arg>;
-                    }
-
-                    static_assert(
-                        std::is_move_constructible_v<Arg>,
-                        "[Delegate] A function taking T&& as a parameter and invoked with T requires from T that it is movable."
-                    );
-
-                    // If the function is invoked with a non-reference, it entails that a move will
-                    // be made at some point.
-                    return std::type_identity_t<std::remove_reference_t<Arg>>;
-                }
-
-                if constexpr (target.isLValueReference())
-                {
-                    static_assert(
-                        std::is_copy_constructible_v<Arg>,
-                        "[Delegate] A function taking T as a parameter and invoked with T& requires from T that it is copyable."
-                    );
-
-                    // If the function is invoked with a lvalue reference, it entails that a copy will
-                    // be made at some point.
-                    return addCVQualifiersIfRequired<std::add_lvalue_reference_t<Arg>>(target);
-                }
-
-                if constexpr (target.isRValueReference())
-                {
-                    static_assert(
-                        std::is_move_constructible_v<Arg>,
-                        "[Delegate] A function taking T as a parameter and invoked with T&& requires from T that it is movable."
-                    );
-
-                    // If the function is invoked with a rvalue reference, it entails that a move will
-                    // be made at some point.
-                    return addCVQualifiersIfRequired<std::add_rvalue_reference_t<Arg>>(target);
-                }
-
-                // The argument is not a reference, as expected
-                return addCVQualifiersIfRequired<Arg>(target);
-            }
-
-            template<class Arg>
-            static constexpr auto addCVQualifiersIfRequired(FunctionArgument target) const noexcept
-            {
-                constexpr bool isConst    = target.isConst();
-                constexpr bool isVolatile = target.isVolatile();
-
-                if constexpr (isConst && isVolatile)
-                    return std::type_identity_t<std::add_cv_t<Arg>>;
-                if constexpr (isConst)
-                    return std::type_identity_t<std::add_const_t<Arg>>;
-                if constexpr (isVolatile)
-                    return std::type_identity_t<std::add_volatile_t<Arg>>;
-
-                return std::type_identity_t<Arg>;
-            }
-
-            template<class R, class... Args>
-            static constexpr auto toFunctionPointer(std::type_identity_t<Args>... args) const noexcept
-            {
-                return static_cast<R(*)(Args...)>(nullptr);
-            }
-        };
+        using MetaFunctionBuilder = const IMetaFunction& (*)();
 
         template<class... Args>
         constexpr auto operator ()(Args&&... args) const -> Ret
         {
             using ProxyFunction = Ret(*)(const Delegate*, Args&&...);
 
-            constexpr auto arguments     = detail::typeName<Ret(*)(Args...)>();
-            constexpr auto argumentsHash = traits::function_hash<Ret(*)(Args...)>;
+            constexpr auto invokedSignature = detail::typeName<Ret(*)(Args...)>();
+            constexpr auto decayedSignature = detail::typeName<Ret(*)(std::decay_t<Args>...)>();
 
-            constexpr detail::FixedString<arguments.size()> representation(arguments);
+            constexpr MetaFunctionBuilder builder = +[]() constexpr noexcept -> const IMetaFunction& {
+                static constexpr MetaFunction<Ret, Args...> metaFunction;
 
-            const auto function = _wrapper(arguments, argumentsHash, true);
+                return metaFunction;
+            };
+
+            const auto function = _wrapper(builder, true);
             const auto proxy    = reinterpret_cast<ProxyFunction>(function);
 
             return proxy(this, std::forward<Args>(args)...);
@@ -1407,38 +1661,37 @@ namespace axl
         }
 
     private:
+        using Signature = detail::FixedString<512U>;
+
+        template<detail::FixedString S>
+        struct Meta {};
+
         [[noreturn]]
-        static constexpr auto throwBadCall(detail::FixedString, detail::FixedString, const bool) -> AnyTarget
+        static constexpr auto throwBadCall(MetaFunctionBuilder, const bool) -> AnyTarget
         {
             throw BadDelegateCall();
         }
 
         template<auto Target>
         static constexpr auto executeFunction(
-            detail::FixedString,
-            detail::FixedString,
+            MetaFunctionBuilder builder,
             const bool throwOnMismatch
         ) -> AnyTarget
         {
-            using ProxyFunction = traits::delegate_proxy_t<decltype(Target), Delegate>;
-
-            constexpr ProxyFunction proxy = [](const Delegate*, auto&&... args) constexpr -> Ret {
+            constexpr auto proxy = [](const Delegate*, auto&&... args) constexpr -> Ret {
                 return invoke(Target, DELEGATE_FWD(args)...);
             };
 
-            return getMatchingFunctor<decltype(Target), proxy>(arguments, argumentsHash, throwOnMismatch);
+            return getProxyFunction<decltype(Target), decltype(proxy)>(builder, throwOnMismatch);
         }
 
         template<class T, auto T::*Target>
         static constexpr auto executeMemberFunction(
-            detail::FixedString,
-            detail::FixedString,
+            MetaFunctionBuilder builder,
             const bool throwOnMismatch
         ) -> AnyTarget
         {
-            using ProxyFunction = traits::delegate_proxy_t<decltype(Target), Delegate>;
-
-            constexpr ProxyFunction proxy = [](const Delegate* self, auto&&... args) constexpr -> Ret
+            constexpr auto proxy = [](const Delegate* self, auto&&... args) constexpr -> Ret
             {
                 const auto& instance = [](const Delegate* self) constexpr -> T&
                 {
@@ -1451,19 +1704,16 @@ namespace axl
                 return invoke(Target, instance, std::forward<decltype(args)>(args)...);
             };
 
-            return getMatchingFunctor<decltype(Target), proxy>(arguments, argumentsHash, throwOnMismatch);
+            return getProxyFunction<decltype(Target), decltype(proxy)>(builder, throwOnMismatch);
         }
 
         template<class F>
         static constexpr auto executeCallableView(
-            detail::FixedString,
-            detail::FixedString,
+            MetaFunctionBuilder builder,
             const bool throwOnMismatch
         ) -> AnyTarget
         {
-            using ProxyFunction = traits::delegate_proxy_t<F, Delegate>;
-
-            constexpr ProxyFunction proxy = [](const Delegate* self, auto&&... args) constexpr -> Ret
+            constexpr auto proxy = [](const Delegate* self, auto&&... args) constexpr -> Ret
             {
                 const auto target = [](const Delegate* self) constexpr -> F*
                 {
@@ -1476,83 +1726,80 @@ namespace axl
                 return invoke(*target, DELEGATE_FWD(args)...);
             };
 
-            return getMatchingFunctor<F, proxy>(arguments, argumentsHash, throwOnMismatch);
+            return getProxyFunction<F, decltype(proxy)>(builder, throwOnMismatch);
         }
 
         template<class F>
         static constexpr auto executeEmptyCallable(
-            detail::FixedString,
-            detail::FixedString,
+            MetaFunctionBuilder builder,
             const bool throwOnMismatch
         ) -> AnyTarget
         {
-            using ProxyFunction = traits::delegate_proxy_t<F, Delegate>;
-
-            constexpr ProxyFunction proxy = [](const Delegate*, auto&&... args) constexpr -> Ret {
+            constexpr auto proxy = [](const Delegate*, auto&&... args) constexpr -> Ret {
                 return invoke(F{}, DELEGATE_FWD(args)...);
             };
 
-            return getMatchingFunctor<F, proxy>(arguments, argumentsHash, throwOnMismatch);
+            return getProxyFunction<F, decltype(proxy)>(builder, throwOnMismatch);
         }
 
         template<class F>
         static constexpr auto executeStatefulCallable(
-            detail::FixedString,
-            detail::FixedString,
+            MetaFunctionBuilder builder,
             const bool throwOnMismatch
         ) -> AnyTarget
         {
-            using ProxyFunction = traits::delegate_proxy_t<F, Delegate>;
-
-            constexpr ProxyFunction proxy = [](const Delegate* self, auto&&... args) constexpr -> Ret
+            constexpr auto proxy = [](const Delegate* self, auto&&... args) constexpr -> Ret
             {
                 const auto& target = *std::launder(reinterpret_cast<const F*>(_storage));
 
                 return invoke(target, DELEGATE_FWD(args)...);
             };
 
-            return getMatchingFunctor<F, proxy>(arguments, argumentsHash, throwOnMismatch);
+            return getProxyFunction<F, decltype(proxy)>(builder, throwOnMismatch);
         }
 
         template<class R, class... Args>
         static constexpr auto executeStatelessCallable(
-            detail::FixedString invokedSignature,
-            detail::FixedString decayedSignature,
+            MetaFunctionBuilder builder,
             const bool throwOnMismatch
         ) -> AnyTarget
         {
-            constexpr auto* functionType = getProxyFunctionType<R(*)(Args...)>(invokedSignature);
-
-            using FunctionProxy = decltype(functionType);
-
-            constexpr FunctionProxy proxy = +[](const Delegate* self, auto&&... args) constexpr -> Ret
+            constexpr auto proxy = [](const Delegate* self, auto&&... args) constexpr -> Ret
             {
+                static_assert(std::is_invocable_v<R(*)(Args...), decltype(args)...>);
+
                 const auto target = reinterpret_cast<R(*)(Args...)>(self->_function);
 
                 return invoke(target, DELEGATE_FWD(args)...);
             };
 
-            return getMatchingFunctor<R(*)(Args...), proxy>(arguments, argumentsHash, throwOnMismatch);
+            return getProxyFunction<R(*)(Args...), decltype(proxy)>(builder, throwOnMismatch);
         }
 
-        template<class Target, auto Functor, class R, class Args...>
-        static constexpr auto getMatchingFunctor(
-            detail::FixedString invokedSignature,
-            detail::FixedString decayedSignature,
+        template<class Target, class GenericProxy>
+        static constexpr auto getProxyFunction(
+            MetaFunctionBuilder builder,
             const bool throwOnMismatch
-        ) -> AnyTarget
+        )
         {
-            using MetaFunction = MetaFunction<R, Args...>;
+            const auto& targetMetaFunction = builder();
 
-            if (MetaFunction metaFunction; !metaFunction.isCompatibleWithDecayedSignature(decayedSignature))
+            constexpr auto metaFunction = IMetaFunction::fromFunctionType<Target>();
+                
+            if (!metaFunction.isCompatibleWith(targetMetaFunction))
             {
                 if (throwOnMismatch)
-                    throw BadDelegateArguments(acceptableArguments, arguments);
+                    throw BadDelegateArguments(targetMetaFunction.signature().representation(), detail::typeName<Target>());
 
-                return nullptr;
+                return reinterpret_cast<AnyTarget>(nullptr);
             }
 
-            return reinterpret_cast<AnyTarget>(Functor);
+            using InvokedSignature = decltype(metaFunction.getInvokedSignatureType(targetMetaFunction));
+            using FunctionProxy   = traits::delegate_proxy_t<InvokedSignature, Delegate>;
+
+            constexpr FunctionProxy proxy = GenericProxy();
+
+            return reinterpret_cast<AnyTarget>(proxy);
         }
 
         template<class F, class... Args>
@@ -1564,16 +1811,6 @@ namespace axl
                 return std::invoke(DELEGATE_FWD(target), DELEGATE_FWD(args)...);
         }
 
-        template<class F>
-        static constexpr auto getProxyFunctionType(detail::FixedString invokedSignature) noexcept
-        {
-            using FunctionProxy = traits::delegate_proxy_t<F, Delegate>;
-
-            return [&]<class R, class Args...>(R (*)(Args...)) {
-                return MetaFunction<R, Args...>().getInvokedSignatureType(invokedSignature);
-            }(reinterpret_cast<FunctionProxy>(nullptr));
-        }
-
     protected:
         union
         {
@@ -1581,10 +1818,10 @@ namespace axl
             const void* _constInstance;
             AnyTarget   _function;
 
-            constinit alignas(Alignment) std::byte _storage[BufferSize] { };
+            alignas(Alignment) std::byte _storage[BufferSize] { };
         };
 
-        using Wrapper = AnyTarget(*)(detail::FixedString, detail::FixedString, const bool) constexpr;
+        using Wrapper = AnyTarget(*)(MetaFunctionBuilder, const bool);
 
         Wrapper _wrapper { &throwBadCall };
     };
@@ -2154,7 +2391,7 @@ namespace axl
             const void* _constInstance;
             AnyTarget   _function;
 
-            constinit alignas(Alignment) std::byte _storage[BufferSize] {};
+            alignas(Alignment) std::byte _storage[BufferSize] {};
         };
 
         using ProxyFunction = Ret(*)(const Delegate*, Args&&...);

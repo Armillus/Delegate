@@ -3,13 +3,36 @@
 
 #include "include/Delegate/Delegate.hpp"
 
+#include <array>
+#include <string_view>
 
 int main()
 {
     int a = 5, b = 3, c = 8;
 
-    static_assert(std::is_invocable_r_v<int, int(*)(int), int&>);
-    static_assert(std::is_invocable_r_v<int, int(*)(int&), int&>);
+    //static_assert(std::is_invocable_r_v<int, int(*)(int), int>);
+    //static_assert(std::is_invocable_r_v<int, int(*)(int), const int>);
+    //static_assert(std::is_invocable_r_v<int, int(*)(int), volatile int>);
+    //static_assert(std::is_invocable_r_v<int, int(*)(int), int&>);
+    //static_assert(std::is_invocable_r_v<int, int(*)(int), const int&>);
+    //static_assert(std::is_invocable_r_v<int, int(*)(int), volatile int&>);
+    //static_assert(std::is_invocable_r_v<int, int(*)(int), int&&>);
+    //static_assert(std::is_invocable_r_v<int, int(*)(int), const int&&>);
+    //static_assert(std::is_invocable_r_v<int, int(*)(int), volatile int&&>);
+
+    //static_assert(std::is_invocable_r_v<int, int(*)(int&), int>);
+    //static_assert(std::is_invocable_r_v<int, int(*)(int&), int&>);
+    //static_assert(std::is_invocable_r_v<int, int(*)(int&), const int&>);
+    //static_assert(std::is_invocable_r_v<int, int(*)(int&), volatile int&>);
+    //static_assert(std::is_invocable_r_v<int, int(*)(int&), int&&>);
+
+    //static_assert(std::is_invocable_r_v<int, int(*)(int&&), int>);
+    //static_assert(std::is_invocable_r_v<int, int(*)(int&&), const int>);
+    //static_assert(std::is_invocable_r_v<int, int(*)(int&&), volatile int>);
+    //static_assert(std::is_invocable_r_v<int, int(*)(int&&), int&>);
+    //static_assert(std::is_invocable_r_v<int, int(*)(int&&), int&&>);
+    //static_assert(std::is_invocable_r_v<int, int(*)(int&&), const int&&>);
+    //static_assert(std::is_invocable_r_v<int, int(*)(int&&), volatile int&&>);
 
     static_assert(axl::traits::is_function_pointer_v<decltype(&std::strlen)>);
 
@@ -20,7 +43,7 @@ int main()
 
     std::unordered_map<int, axl::Delegate<int()>> test;
 
-    axl::Delegate<void(...)> t{ +[](int& a, const int b) { std::cout << a + b << std::endl; }};
+    axl::Delegate<void(...)> t{ +[](int& a, bool, const int b) { std::cout << a + b << std::endl; }};
 
     test.emplace(0, [&]() { return a + 3; });
 
@@ -33,7 +56,7 @@ int main()
 
     std::cout << "d() => " << d() << std::endl;
     std::cout << "t() => " << std::endl;
-    t(b, 193);
+    t(b, false, 193);
 
     auto lambda = [](int) { std::cout << "hello" << std::endl; };
 
