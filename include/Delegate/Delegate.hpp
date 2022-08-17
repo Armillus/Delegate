@@ -817,11 +817,6 @@ namespace axl
             }
         };
 
-            template<class Parameter>
-            struct Empty
-            {
-                constexpr Empty(bool) noexcept {};
-            };
 
             template<class Parameter>
             using InvokedParameter = std::variant<
@@ -961,17 +956,17 @@ namespace axl
             
             static constexpr decltype(auto) getInvokedSignatureType(const IMetaFunction& rhs) noexcept
             {
-                /*constexpr auto Indices = std::make_index_sequence<sizeof...(Args)>();
+                constexpr auto Indices = std::make_index_sequence<sizeof...(Args)>();
 
                 return []<std::size_t... I> (const IMetaFunction& rhs, std::index_sequence<I...>) {
                     return [](FunctionArgument args...) {
                         return toFunctionPointer(getInvokedParameterType<Args>(args)...);
                     }(rhs.nthArgument(I)...);
-                }(rhs, Indices);*/
+                }(rhs, Indices);
 
-                std::size_t i = 0;
+                //std::size_t i = 0;
 
-                return toFunctionPointer(getInvokedParameterType<Args>(rhs.nthArgument(i++))...);
+                //return toFunctionPointer(getInvokedParameterType<Args>(rhs.nthArgument(i++))...);
 
 
                 // 1. Split the signature into a list of std::string_view
@@ -988,17 +983,7 @@ namespace axl
                     // The original argument is a lvalue, so the target needs to be a lvalue too,
                     // otherwise it will result in an Undefined Behavior.
 
-                    //if (!target.isLValueReference()) {
-                    //    static_assert(false, "[Delegate] A function taking a T& as parameter cannot be invoked with a T or T&&.");
-                    //}
-
-                    //if (target.isConst()) {
-                    //    static_assert(false, "[Delegate] A function taking a T& as parameter cannot be invoked with a const T&.");
-                    //}
-
-                    //if (target.isVolatile()) {
-                    //    static_assert(false, "[Delegate] A function taking a T& as parameter cannot be invoked with a volatile T&.");
-                    //}
+                    // checkForValidity<Arg>(target);
 
                     // The argument is a lvalue, as expected
                     return addCVQualifiersIfRequired<Arg>(target);
@@ -1009,17 +994,7 @@ namespace axl
                     // The original argument is a Arg&&, so the target needs to be either an Arg&& or an Arg,
                     // since lvalues are not transformable into rvalues.
 
-                    //if (target.isLValueReference()) {
-                    //    static_assert(false, "[Delegate] A function taking a T&& as parameter cannot be invoked with a T&.");
-                    //}
-
-                    //if (target.isConst()) {
-                    //    static_assert(false, "[Delegate] A function taking a T&& as parameter cannot be invoked with a const T&&.");
-                    //}
-
-                    //if (target.isVolatile()) {
-                    //    static_assert(false, "[Delegate] A function taking a T&& as parameter cannot be invoked with a volatile T&&.");
-                    //}
+                    // checkForValidity<Arg>(target);
 
                     if (target.isRValue)
                     {
@@ -1065,6 +1040,70 @@ namespace axl
                 return addCVQualifiersIfRequired<Arg>(target);
             }
 
+            template<class Arg>
+            static constexpr void checkForValidity(FunctionArgument invoked) noexcept
+            {
+                if (invoked.isLValue)
+                    checkForValidity<Arg, true>(invoked);
+                else
+                    checkForValidity<Arg, false>(invoked);
+            }
+
+            template<class Arg, bool InvokedIsLValue>
+            static constexpr void checkForValidity(FunctionArgument invoked) noexcept
+            {
+                if (invoked.isRValue)
+                    checkForValidity<Arg, InvokedIsLValue, true>(invoked);
+                else
+                    checkForValidity<Arg, InvokedIsLValue, false>(invoked);
+            }
+
+            template<class Arg, bool InvokedIsLValue, bool InvokedIsRValue>
+            static constexpr void checkForValidity(FunctionArgument invoked) noexcept
+            {
+                if (invoked.isConst)
+                    checkForValidity<Arg, InvokedIsLValue, InvokedIsRValue, true>(invoked);
+                else
+                    checkForValidity<Arg, InvokedIsLValue, InvokedIsRValue, false>(invoked);
+            }
+
+            template<class Arg, bool InvokedIsLValue, bool InvokedIsRValue, bool InvokedIsConst>
+            static constexpr void checkForValidity(FunctionArgument invoked) noexcept
+            {
+                if (invoked.isVolatile)
+                    checkForValidity<Arg, InvokedIsLValue, InvokedIsRValue, InvokedIsConst, true>();
+                else
+                    checkForValidity<Arg, InvokedIsLValue, InvokedIsRValue, InvokedIsConst, false>();
+            }
+
+            template<class Arg, bool InvokedIsLValue, bool InvokedIsRValue, bool InvokedIsConst, bool InvokedIsVolatile>
+            static constexpr void checkForValidity() noexcept
+            {
+                if constexpr (std::is_lvalue_reference_v<Arg>)
+                {
+                    // The original argument is a lvalue, so the target needs to be a lvalue too,
+                    // otherwise it will result in an Undefined Behavior.
+
+                    static_assert(InvokedIsLValue, "[Delegate] A function taking a T& as parameter cannot be invoked with a T or T&&.");
+
+                    static_assert(!InvokedIsConst, "[Delegate] A function taking a T& as parameter cannot be invoked with a const T&.");
+
+                    static_assert(!InvokedIsVolatile, "[Delegate] A function taking a T& as parameter cannot be invoked with a volatile T&.");
+                }
+
+                if constexpr (std::is_rvalue_reference_v<Arg>)
+                {
+                    // The original argument is a Arg&&, so the target needs to be either an Arg&& or an Arg,
+                    // since lvalues are not transformable into rvalues.
+
+                    static_assert(!InvokedIsLValue, "[Delegate] A function taking a T&& as parameter cannot be invoked with a T&.");
+
+                    static_assert(!InvokedIsConst, "[Delegate] A function taking a T&& as parameter cannot be invoked with a const T&&.");
+
+                    static_assert(!InvokedIsVolatile, "[Delegate] A function taking a T&& as parameter cannot be invoked with a volatile T&&.");
+                }
+            }
+
             template<class Arg, class InvokedArg = Arg>
             // requires std::same_as<std::decay_t<Arg>, std::decay_t<InvokedArg>>
             static constexpr auto addCVQualifiersIfRequired(FunctionArgument target) noexcept -> ParameterType<Arg>
@@ -1073,24 +1112,24 @@ namespace axl
                 {
                     constexpr auto type = getInvokedParameterType<InvokedArg, true, true>();
 
-                    return ParameterType<Arg>(std::in_place_index_t<static_cast<std::size_t>(type)>);
+                    return ParameterType<Arg>(std::in_place_index<static_cast<std::size_t>(type)>);
                 }
                 if (target.isConst)
                 {
                     constexpr auto type = getInvokedParameterType<InvokedArg, true, false>();
 
-                    return ParameterType<Arg>(std::in_place_index_t<static_cast<std::size_t>(type)>);
+                    return ParameterType<Arg>(std::in_place_index<static_cast<std::size_t>(type)>);
                 }
                 if (target.isVolatile)
                 {
                     constexpr auto type = getInvokedParameterType<InvokedArg, false, true>();
 
-                    return ParameterType<Arg>(std::in_place_index_t<static_cast<std::size_t>(type)>);
+                    return ParameterType<Arg>(std::in_place_index<static_cast<std::size_t>(type)>);
                 }
 
                 constexpr auto type = getInvokedParameterType<InvokedArg, false, false>();
 
-                return ParameterType<Arg>(std::in_place_index_t<static_cast<std::size_t>(type)>);
+                return ParameterType<Arg>(std::in_place_index<static_cast<std::size_t>(type)>);
             }
 
             template<class InvokedArg, bool IsConst, bool IsVolatile>
@@ -1764,7 +1803,7 @@ namespace axl
             const bool throwOnMismatch
         ) -> AnyTarget
         {
-            constexpr auto proxy = [](const Delegate* self, auto&&... args) constexpr -> Ret
+            constexpr auto proxy = []<class... Invoked>(const Delegate* self, Invoked&&... args) constexpr -> Ret
             {
                 static_assert(std::is_invocable_v<R(*)(Args...), decltype(args)...>);
 
@@ -1795,7 +1834,9 @@ namespace axl
             }
 
             using InvokedSignature = decltype(metaFunction.getInvokedSignatureType(targetMetaFunction));
-            using FunctionProxy   = traits::delegate_proxy_t<InvokedSignature, Delegate>;
+            using FunctionProxy    = traits::delegate_proxy_t<InvokedSignature, Delegate>;
+
+            static_assert(std::is_convertible_v<GenericProxy, FunctionProxy>);
 
             constexpr FunctionProxy proxy = GenericProxy();
 
