@@ -52,7 +52,7 @@
 #include <variant>
 #include <tuple>
 #include <utility>
-#include <optional>
+#include <format>
 
 // +--------------------------------------------------------------------------+
 // | All of the code below is a mix of different inspirations such as:        |
@@ -1161,20 +1161,16 @@ namespace axl
     {
 
     public:
-        BadDelegateArguments(std::string_view acceptableArguments, std::string_view arguments) noexcept
-            : std::runtime_error { makeErrorMessage(acceptableArguments, arguments) }
+        BadDelegateArguments(FunctionSignature target, FunctionSignature invoked) noexcept
+            : std::runtime_error { makeErrorMessage(target, invoked) }
         {}
 
     private:
-        std::string makeErrorMessage(std::string_view acceptableArguments, std::string_view arguments) noexcept
+        std::string makeErrorMessage(FunctionSignature target, FunctionSignature invoked) noexcept
         {
             using namespace std::string_literals;
 
-            return "Arguments ["s
-                    + arguments.data()
-                    + "] were given instead of expected ["s
-                    + acceptableArguments.data()
-                    + "]."s;
+            return std::format("Function [{}] cannot be invoked with [{}].", target.representation(), invoked.representation());
         }
     };
 
@@ -1751,21 +1747,21 @@ namespace axl
 
         template<class Target, class GenericProxy>
         static constexpr auto getProxyFunction(
-            const IMetaFunction& invokedFunction,
+            const IMetaFunction& invoked,
             const bool throwOnMismatch
         )
         {
-            constexpr auto metaFunction = IMetaFunction::fromFunctionType<Target>();
+            constexpr auto target = IMetaFunction::fromFunctionType<Target>();
                 
-            if (!metaFunction.isCompatibleWith(invokedFunction))
+            if (!target.isCompatibleWith(invoked))
             {
                 if (throwOnMismatch)
-                    throw BadDelegateArguments(invokedFunction.signature().representation(), detail::typeName<Target>());
+                    throw BadDelegateArguments(target.signature(), invoked.signature());
 
                 return reinterpret_cast<AnyTarget>(nullptr);
             }
 
-            using InvokedSignature = decltype(metaFunction.getInvokedSignatureType(invokedFunction));
+            using InvokedSignature = decltype(target.getInvokedSignatureType(invoked));
             using FunctionProxy    = traits::delegate_proxy_t<InvokedSignature, Delegate>;
 
             constexpr FunctionProxy proxy = GenericProxy();
