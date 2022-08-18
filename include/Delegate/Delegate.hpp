@@ -947,6 +947,18 @@ namespace axl
                 //static_assert(false, "Functions with more than 20 arguments are not supported yet.");
             }
 
+            enum class CompatibilityError
+            {
+                None,
+                DifferentParameters,
+                NotLValue,
+                IsLValue,
+                IsConst,
+                IsVolatile,
+                NotCopiable,
+                NotMovable,
+            };
+
             constexpr bool isCompatibleWith(const IMetaFunction& rhs) const noexcept override
             {
                 constexpr FunctionSignature ownDecayedSignature = axl::detail::typeName<std::decay_t<R(*)(Args...)>>();
@@ -983,8 +995,6 @@ namespace axl
                     // The original argument is a lvalue, so the target needs to be a lvalue too,
                     // otherwise it will result in an Undefined Behavior.
 
-                    // checkForValidity<Arg>(target);
-
                     // The argument is a lvalue, as expected
                     return addCVQualifiersIfRequired<Arg>(target);
                 }
@@ -993,8 +1003,6 @@ namespace axl
                 {
                     // The original argument is a Arg&&, so the target needs to be either an Arg&& or an Arg,
                     // since lvalues are not transformable into rvalues.
-
-                    // checkForValidity<Arg>(target);
 
                     if (target.isRValue)
                     {
@@ -1038,70 +1046,6 @@ namespace axl
 
                 // The argument is not a reference, as expected
                 return addCVQualifiersIfRequired<Arg>(target);
-            }
-
-            template<class Arg>
-            static constexpr void checkForValidity(FunctionArgument invoked) noexcept
-            {
-                if (invoked.isLValue)
-                    checkForValidity<Arg, true>(invoked);
-                else
-                    checkForValidity<Arg, false>(invoked);
-            }
-
-            template<class Arg, bool InvokedIsLValue>
-            static constexpr void checkForValidity(FunctionArgument invoked) noexcept
-            {
-                if (invoked.isRValue)
-                    checkForValidity<Arg, InvokedIsLValue, true>(invoked);
-                else
-                    checkForValidity<Arg, InvokedIsLValue, false>(invoked);
-            }
-
-            template<class Arg, bool InvokedIsLValue, bool InvokedIsRValue>
-            static constexpr void checkForValidity(FunctionArgument invoked) noexcept
-            {
-                if (invoked.isConst)
-                    checkForValidity<Arg, InvokedIsLValue, InvokedIsRValue, true>(invoked);
-                else
-                    checkForValidity<Arg, InvokedIsLValue, InvokedIsRValue, false>(invoked);
-            }
-
-            template<class Arg, bool InvokedIsLValue, bool InvokedIsRValue, bool InvokedIsConst>
-            static constexpr void checkForValidity(FunctionArgument invoked) noexcept
-            {
-                if (invoked.isVolatile)
-                    checkForValidity<Arg, InvokedIsLValue, InvokedIsRValue, InvokedIsConst, true>();
-                else
-                    checkForValidity<Arg, InvokedIsLValue, InvokedIsRValue, InvokedIsConst, false>();
-            }
-
-            template<class Arg, bool InvokedIsLValue, bool InvokedIsRValue, bool InvokedIsConst, bool InvokedIsVolatile>
-            static constexpr void checkForValidity() noexcept
-            {
-                if constexpr (std::is_lvalue_reference_v<Arg>)
-                {
-                    // The original argument is a lvalue, so the target needs to be a lvalue too,
-                    // otherwise it will result in an Undefined Behavior.
-
-                    static_assert(InvokedIsLValue, "[Delegate] A function taking a T& as parameter cannot be invoked with a T or T&&.");
-
-                    static_assert(!InvokedIsConst, "[Delegate] A function taking a T& as parameter cannot be invoked with a const T&.");
-
-                    static_assert(!InvokedIsVolatile, "[Delegate] A function taking a T& as parameter cannot be invoked with a volatile T&.");
-                }
-
-                if constexpr (std::is_rvalue_reference_v<Arg>)
-                {
-                    // The original argument is a Arg&&, so the target needs to be either an Arg&& or an Arg,
-                    // since lvalues are not transformable into rvalues.
-
-                    static_assert(!InvokedIsLValue, "[Delegate] A function taking a T&& as parameter cannot be invoked with a T&.");
-
-                    static_assert(!InvokedIsConst, "[Delegate] A function taking a T&& as parameter cannot be invoked with a const T&&.");
-
-                    static_assert(!InvokedIsVolatile, "[Delegate] A function taking a T&& as parameter cannot be invoked with a volatile T&&.");
-                }
             }
 
             template<class Arg, class InvokedArg = Arg>
@@ -1451,16 +1395,9 @@ namespace axl
         {
             using ProxyFunction = Ret(*)(const Delegate*, Args&&...);
 
-            constexpr auto invokedSignature = detail::typeName<Ret(*)(Args...)>();
-            constexpr auto decayedSignature = detail::typeName<Ret(*)(std::decay_t<Args>...)>();
+            constexpr MetaFunction<Ret, Args...> invokedFunction {};
 
-            constexpr MetaFunctionBuilder builder = +[]() constexpr noexcept -> const IMetaFunction& {
-                static constexpr MetaFunction<Ret, Args...> metaFunction;
-
-                return metaFunction;
-            };
-
-            const auto function = _wrapper(builder, true);
+            const auto function = _wrapper(invokedFunction, true);
             const auto proxy    = reinterpret_cast<ProxyFunction>(function);
 
             return proxy(this, std::forward<Args>(args)...);
@@ -1486,11 +1423,10 @@ namespace axl
         {
             using ProxyFunction = Ret(*)(const Delegate*, Args&&...);
 
-            constexpr auto arguments     = detail::typeName<Ret(*)(Args...)>();
-            constexpr auto argumentsHash = traits::function_hash<Ret(*)(Args...)>;
+            constexpr MetaFunction<Ret, Args...> invokedFunction{};
 
-            const auto function = _wrapper(arguments, argumentsHash, false);
-            const auto proxy    = reinterpret_cast<ProxyFunction>(function);
+            const auto function = _wrapper(invokedFunction, false);
+            const auto proxy = reinterpret_cast<ProxyFunction>(function);
 
             return (proxy != nullptr);
         }
@@ -1706,31 +1642,31 @@ namespace axl
         struct Meta {};
 
         [[noreturn]]
-        static constexpr auto throwBadCall(MetaFunctionBuilder, const bool) -> AnyTarget
+        static constexpr auto throwBadCall(const IMetaFunction&, const bool) -> AnyTarget
         {
             throw BadDelegateCall();
         }
 
         template<auto Target>
         static constexpr auto executeFunction(
-            MetaFunctionBuilder builder,
+            const IMetaFunction& invokedFunction,
             const bool throwOnMismatch
         ) -> AnyTarget
         {
-            constexpr auto proxy = [](const Delegate*, auto&&... args) constexpr -> Ret {
+            constexpr auto proxy = []<class... Invoked>(const Delegate * self, Invoked&&... args) constexpr -> Ret {
                 return invoke(Target, DELEGATE_FWD(args)...);
             };
 
-            return getProxyFunction<decltype(Target), decltype(proxy)>(builder, throwOnMismatch);
+            return getProxyFunction<decltype(Target), decltype(proxy)>(invokedFunction, throwOnMismatch);
         }
 
         template<class T, auto T::*Target>
         static constexpr auto executeMemberFunction(
-            MetaFunctionBuilder builder,
+            const IMetaFunction& invokedFunction,
             const bool throwOnMismatch
         ) -> AnyTarget
         {
-            constexpr auto proxy = [](const Delegate* self, auto&&... args) constexpr -> Ret
+            constexpr auto proxy = []<class... Invoked>(const Delegate * self, Invoked&&... args) constexpr -> Ret
             {
                 const auto& instance = [](const Delegate* self) constexpr -> T&
                 {
@@ -1743,16 +1679,16 @@ namespace axl
                 return invoke(Target, instance, std::forward<decltype(args)>(args)...);
             };
 
-            return getProxyFunction<decltype(Target), decltype(proxy)>(builder, throwOnMismatch);
+            return getProxyFunction<decltype(Target), decltype(proxy)>(invokedFunction, throwOnMismatch);
         }
 
         template<class F>
         static constexpr auto executeCallableView(
-            MetaFunctionBuilder builder,
+            const IMetaFunction& invokedFunction,
             const bool throwOnMismatch
         ) -> AnyTarget
         {
-            constexpr auto proxy = [](const Delegate* self, auto&&... args) constexpr -> Ret
+            constexpr auto proxy = []<class... Invoked>(const Delegate * self, Invoked&&... args) constexpr -> Ret
             {
                 const auto target = [](const Delegate* self) constexpr -> F*
                 {
@@ -1765,78 +1701,72 @@ namespace axl
                 return invoke(*target, DELEGATE_FWD(args)...);
             };
 
-            return getProxyFunction<F, decltype(proxy)>(builder, throwOnMismatch);
+            return getProxyFunction<F, decltype(proxy)>(invokedFunction, throwOnMismatch);
         }
 
         template<class F>
         static constexpr auto executeEmptyCallable(
-            MetaFunctionBuilder builder,
+            const IMetaFunction& invokedFunction,
             const bool throwOnMismatch
         ) -> AnyTarget
         {
-            constexpr auto proxy = [](const Delegate*, auto&&... args) constexpr -> Ret {
+            constexpr auto proxy = []<class... Invoked>(const Delegate * self, Invoked&&... args) constexpr -> Ret {
                 return invoke(F{}, DELEGATE_FWD(args)...);
             };
 
-            return getProxyFunction<F, decltype(proxy)>(builder, throwOnMismatch);
+            return getProxyFunction<F, decltype(proxy)>(invokedFunction, throwOnMismatch);
         }
 
         template<class F>
         static constexpr auto executeStatefulCallable(
-            MetaFunctionBuilder builder,
+            const IMetaFunction& invokedFunction,
             const bool throwOnMismatch
         ) -> AnyTarget
         {
-            constexpr auto proxy = [](const Delegate* self, auto&&... args) constexpr -> Ret
+            constexpr auto proxy = []<class... Invoked>(const Delegate * self, Invoked&&... args) constexpr -> Ret
             {
                 const auto& target = *std::launder(reinterpret_cast<const F*>(_storage));
 
                 return invoke(target, DELEGATE_FWD(args)...);
             };
 
-            return getProxyFunction<F, decltype(proxy)>(builder, throwOnMismatch);
+            return getProxyFunction<F, decltype(proxy)>(invokedFunction, throwOnMismatch);
         }
 
         template<class R, class... Args>
         static constexpr auto executeStatelessCallable(
-            MetaFunctionBuilder builder,
+            const IMetaFunction& invokedFunction,
             const bool throwOnMismatch
         ) -> AnyTarget
         {
             constexpr auto proxy = []<class... Invoked>(const Delegate* self, Invoked&&... args) constexpr -> Ret
             {
-                static_assert(std::is_invocable_v<R(*)(Args...), decltype(args)...>);
-
                 const auto target = reinterpret_cast<R(*)(Args...)>(self->_function);
 
                 return invoke(target, DELEGATE_FWD(args)...);
             };
 
-            return getProxyFunction<R(*)(Args...), decltype(proxy)>(builder, throwOnMismatch);
+            return getProxyFunction<R(*)(Args...), decltype(proxy)>(invokedFunction, throwOnMismatch);
         }
 
         template<class Target, class GenericProxy>
         static constexpr auto getProxyFunction(
-            MetaFunctionBuilder builder,
+            const IMetaFunction& invokedFunction,
             const bool throwOnMismatch
         )
         {
-            const auto& targetMetaFunction = builder();
-
             constexpr auto metaFunction = IMetaFunction::fromFunctionType<Target>();
                 
-            if (!metaFunction.isCompatibleWith(targetMetaFunction))
+            if (!metaFunction.isCompatibleWith(invokedFunction))
             {
                 if (throwOnMismatch)
-                    throw BadDelegateArguments(targetMetaFunction.signature().representation(), detail::typeName<Target>());
+                    throw BadDelegateArguments(invokedFunction.signature().representation(), detail::typeName<Target>());
 
                 return reinterpret_cast<AnyTarget>(nullptr);
             }
 
-            using InvokedSignature = decltype(metaFunction.getInvokedSignatureType(targetMetaFunction));
+            using InvokedSignature = decltype(metaFunction.getInvokedSignatureType(invokedFunction));
             using FunctionProxy    = traits::delegate_proxy_t<InvokedSignature, Delegate>;
-
-            static_assert(std::is_convertible_v<GenericProxy, FunctionProxy>);
 
             constexpr FunctionProxy proxy = GenericProxy();
 
@@ -1846,6 +1776,11 @@ namespace axl
         template<class F, class... Args>
         static constexpr auto invoke(F&& target, Args&&... args) -> Ret
         {
+            static_assert(
+                std::is_invocable_v<F, Args...>,
+                "[Delegate] You are trying to invoke a function with non compatible arguments."
+            );
+
             if constexpr (std::is_void_v<Ret>)
                 std::invoke(DELEGATE_FWD(target), DELEGATE_FWD(args)...);
             else
@@ -1862,7 +1797,7 @@ namespace axl
             alignas(Alignment) std::byte _storage[BufferSize] { };
         };
 
-        using Wrapper = AnyTarget(*)(MetaFunctionBuilder, const bool);
+        using Wrapper = AnyTarget(*)(const IMetaFunction&, const bool);
 
         Wrapper _wrapper { &throwBadCall };
     };
