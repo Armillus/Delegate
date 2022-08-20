@@ -53,6 +53,7 @@
 #include <tuple>
 #include <utility>
 #include <format>
+#include <memory>
 
 // +--------------------------------------------------------------------------+
 // | All of the code below is a mix of different inspirations such as:        |
@@ -726,7 +727,9 @@ namespace axl
                 , isVolatile { representation.find("volatile ") != std::string_view::npos        }
                 , isRValue   { representation.find("&&") != std::string_view::npos               }
                 , isLValue   { !isRValue && representation.find("&") != std::string_view::npos   }
-            {}
+            {
+            
+            }
 
             constexpr FunctionArgument(bool isConst, bool isVolatile, bool isLValue, bool isRValue) noexcept
                 : isConst    { isConst    }
@@ -735,10 +738,10 @@ namespace axl
                 , isLValue   { isLValue   }
             {}
 
-            bool isConst;
-            bool isVolatile;
-            bool isRValue;
-            bool isLValue;
+            bool isConst = false;
+            bool isVolatile = false;
+            bool isRValue = false;
+            bool isLValue = false;
         };
 
         class FunctionSignature
@@ -763,17 +766,41 @@ namespace axl
 
             constexpr auto nthArgument(std::size_t index) const noexcept -> FunctionArgument
             {
-                for (std::size_t offset = 0, separators = 0; ;)
-                {
-                    if (offset = _representation.find(',', offset); offset == std::string_view::npos)
-                        break;
+                std::size_t offset = _representation.find_last_of('(');
 
-                    if (++separators == index)
+                for (std::size_t separators = 0; offset != std::string_view::npos;)
+                {
+                    offset++;
+
+                    if (separators++ == index)
                     {
-                        const std::size_t end = _representation.find(',', offset);
-                
-                        return _representation.substr(offset, end);
+                        const std::size_t end = _representation.find_first_of(",)", offset);
+
+                        return _representation.substr(offset, end - offset);
                     }
+
+                    offset = _representation.find(',', offset);
+                }
+
+                return {};
+            }
+
+            constexpr auto _nthArgument(std::size_t index) const noexcept -> std::string_view
+            {
+                std::size_t offset = _representation.find_last_of('(');
+
+                for (std::size_t separators = 0; offset != std::string_view::npos;)
+                {
+                    offset++;
+
+                    if (separators++ == index)
+                    {
+                        const std::size_t end = _representation.find_first_of(",)", offset);
+
+                        return _representation.substr(offset, end - offset);
+                    }
+
+                    offset = _representation.find(',', offset);
                 }
 
                 return {};
@@ -961,17 +988,72 @@ namespace axl
 
             constexpr bool isCompatibleWith(const IMetaFunction& rhs) const noexcept override
             {
-                constexpr FunctionSignature ownDecayedSignature = axl::detail::typeName<std::decay_t<R(*)(Args...)>>();
+                if (numberOfArguments() != rhs.numberOfArguments())
+                    return false;
 
-                return ownDecayedSignature == rhs.decayedSignature();
+                constexpr FunctionSignature ownSignature = axl::detail::typeName<R(*)(Args...)>();
+
+                if (ownSignature == rhs.signature())
+                    return true;
+
+                constexpr auto Indices = std::make_index_sequence<sizeof...(Args)>();
+
+                std::size_t i = 0;
+                return (... && isArgumentCompatibleWith<Args>(rhs.nthArgument(i++)));
+
+
+                //return []<std::size_t... I>(const IMetaFunction& rhs, std::index_sequence<I...>) {
+                //    return (... && isArgumentCompatibleWith<NthTypeOf<I>>(rhs.nthArgument(I)));
+                //}(rhs, Indices);
             }
+
+        private:
+            template<class OriginalArg>
+            static constexpr bool isArgumentCompatibleWith(FunctionArgument invoked) noexcept
+            {
+                constexpr auto test = detail::typeName<void(*)(OriginalArg)>();
+
+                if constexpr (std::is_lvalue_reference_v<OriginalArg>)
+                {
+                    if constexpr (std::is_const_v<std::remove_reference_t<OriginalArg>>)
+                        return !invoked.isVolatile;
+
+                    if constexpr (std::is_volatile_v<OriginalArg>)
+                        return invoked.isLValue && !invoked.isConst;
+
+                    return invoked.isLValue && !invoked.isConst && !invoked.isVolatile;
+                }
+
+                if constexpr (std::is_rvalue_reference_v<OriginalArg>)
+                {
+                    if constexpr (std::is_const_v<std::remove_reference_t<OriginalArg>>)
+                        return !invoked.isLValue && !invoked.isVolatile;
+
+                    if constexpr (std::is_volatile_v<OriginalArg>)
+                        return !invoked.isLValue && !invoked.isConst;
+
+                    return !invoked.isLValue && !invoked.isConst && !invoked.isVolatile;
+                }
+
+                if constexpr (!std::is_move_constructible_v<OriginalArg>)
+                    return !invoked.isRValue;
+
+                if constexpr (!std::is_copy_constructible_v<OriginalArg>)
+                    return invoked.isLValue || invoked.isRValue;
+
+                return true;
+            }
+
+            template<class... Args>
+            static constexpr bool all(Args... args) noexcept { return (... && args); }
             
+        public:
             static constexpr decltype(auto) getInvokedSignatureType(const IMetaFunction& rhs) noexcept
             {
                 constexpr auto Indices = std::make_index_sequence<sizeof...(Args)>();
 
                 return []<std::size_t... I> (const IMetaFunction& rhs, std::index_sequence<I...>) {
-                    return [](FunctionArgument args...) {
+                    return [](auto... args) {
                         return toFunctionPointer(getInvokedParameterType<Args>(args)...);
                     }(rhs.nthArgument(I)...);
                 }(rhs, Indices);
@@ -1393,6 +1475,22 @@ namespace axl
 
             constexpr MetaFunction<Ret, Args...> invokedFunction {};
 
+            std::cout << std::format("Real Proxy => [{}].", detail::typeName<ProxyFunction>()) << std::endl;
+
+            std::cout << "Real Proxy Signature => " << invokedFunction.signature().representation() << std::endl;
+
+            for (std::size_t i = 0; i < invokedFunction.numberOfArguments(); ++i)
+            {
+                const auto argument = invokedFunction.nthArgument(i);
+
+                std::cout << "Real Proxy Argument => " << invokedFunction.signature()._nthArgument(i) << std::endl;
+                std::cout << std::boolalpha << "\t => isConst: " << argument.isConst
+                                            << " | isVolatile: " << argument.isVolatile
+                                            << " | isLValue: " << argument.isLValue
+                                            << " | isRValue: " << argument.isRValue
+                                            << std::endl;
+            }
+
             const auto function = _wrapper(invokedFunction, true);
             const auto proxy    = reinterpret_cast<ProxyFunction>(function);
 
@@ -1621,6 +1719,7 @@ namespace axl
         constexpr void bind(F&& target) noexcept
         {
             _wrapper = &executeStatefulCallable<F>;
+
             new (_storage) F(std::forward<F>(target));
         }
 
@@ -1765,6 +1864,10 @@ namespace axl
             using FunctionProxy    = traits::delegate_proxy_t<InvokedSignature, Delegate>;
 
             constexpr FunctionProxy proxy = GenericProxy();
+
+            constexpr auto test = IMetaFunction::fromFunctionType<FunctionProxy>();
+            std::cout << std::format("Target => [{}].", target.signature().representation()) << std::endl;
+            std::cout << std::format("FunctionProxy => [{}].", test.signature().representation()) << std::endl;
 
             return reinterpret_cast<AnyTarget>(proxy);
         }
@@ -2271,6 +2374,7 @@ namespace axl
         constexpr void bind(F&& target) noexcept
         {
             _proxy = &executeStatefulCallable<F>;
+
             new (_storage) F(std::forward<F>(target));
         }
 
