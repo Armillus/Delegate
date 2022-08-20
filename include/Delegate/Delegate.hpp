@@ -1479,18 +1479,6 @@ namespace axl
 
             std::cout << "Real Proxy Signature => " << invokedFunction.signature().representation() << std::endl;
 
-            for (std::size_t i = 0; i < invokedFunction.numberOfArguments(); ++i)
-            {
-                const auto argument = invokedFunction.nthArgument(i);
-
-                std::cout << "Real Proxy Argument => " << invokedFunction.signature()._nthArgument(i) << std::endl;
-                std::cout << std::boolalpha << "\t => isConst: " << argument.isConst
-                                            << " | isVolatile: " << argument.isVolatile
-                                            << " | isLValue: " << argument.isLValue
-                                            << " | isRValue: " << argument.isRValue
-                                            << std::endl;
-            }
-
             const auto function = _wrapper(invokedFunction, true);
             const auto proxy    = reinterpret_cast<ProxyFunction>(function);
 
@@ -1697,7 +1685,7 @@ namespace axl
                      std::is_empty_v<F> &&
                      std::is_default_constructible_v<F>
                  ), int> = 0>
-        constexpr void bind() noexcept
+        constexpr void bind(F&&) noexcept
         {
             _wrapper = &executeEmptyCallable<F>;
         }
