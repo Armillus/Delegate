@@ -54,6 +54,7 @@
 #include <utility>
 #include <format>
 #include <memory>
+#include <cassert>
 
 // +--------------------------------------------------------------------------+
 // | All of the code below is a mix of different inspirations such as:        |
@@ -147,6 +148,550 @@ static_assert(
     #define DELEGATE_FWD(...) (std::forward<decltype(__VA_ARGS__)>(__VA_ARGS__))
 #endif
 
+
+#define BOOST_MP11_CONSTEXPR14 constexpr
+
+#if defined( __GNUC__ ) || defined( __clang__ )
+# define BOOST_MP11_UNREACHABLE_DEFAULT default: __builtin_unreachable();
+#elif defined( _MSC_VER )
+# define BOOST_MP11_UNREACHABLE_DEFAULT default: __assume(false);
+#else
+# define BOOST_MP11_UNREACHABLE_DEFAULT
+#endif
+
+namespace boost
+{
+    namespace mp11
+    {
+        template<std::size_t N> using mp_size_t = std::integral_constant<std::size_t, N>;
+
+        namespace detail
+        {
+            template<std::size_t N> using mp_size_t = std::integral_constant<std::size_t, N>;
+
+            template<std::size_t N> struct mp_with_index_impl_
+            {
+                template<std::size_t Size, std::size_t K, class F, class... InputIndices, class... OutputIndices>
+                static BOOST_MP11_CONSTEXPR14 auto call(F&& f, std::size_t i, std::tuple<InputIndices...> inIndices, OutputIndices... outIndices)
+                // template<std::size_t K, class F> static BOOST_MP11_CONSTEXPR14 auto call(std::size_t i, F&& f)
+                {
+                    if (i < N / 2)
+                    {
+                        return mp_with_index_impl_<N / 2>::template call<N, K>(std::forward<F>(f), i, DELEGATE_FWD(inIndices), DELEGATE_FWD(outIndices)...);
+                    }
+                    else
+                    {
+                        return mp_with_index_impl_<N - N / 2>::template call<N, K + N / 2>(std::forward<F>(f), i - N / 2, DELEGATE_FWD(inIndices), DELEGATE_FWD(outIndices)...);
+                    }
+                }
+            };
+
+            template<std::size_t N, std::size_t K, class F, class... Indices, class... OutputIndices>
+            inline BOOST_MP11_CONSTEXPR14 auto call(F&& f, std::tuple<Indices...> indices, OutputIndices... outIndices)
+            {
+                constexpr auto currentIndex = sizeof...(OutputIndices);
+
+                if constexpr (currentIndex == sizeof...(Indices))
+                    return std::forward<F>(f)(DELEGATE_FWD(outIndices)...);
+                else
+                {
+                    const auto i = std::get<currentIndex>(indices);
+
+                    assert(i < N);
+
+                    return detail::mp_with_index_impl_<N>::template call<N, K>(std::forward<F>(f), i, DELEGATE_FWD(indices), DELEGATE_FWD(outIndices)...);
+                }
+            }
+
+            template<> struct mp_with_index_impl_<0>
+            {
+            };
+
+            template<> struct mp_with_index_impl_<1>
+            {
+                template<std::size_t N, std::size_t K, class F, std::unsigned_integral... InputIndices, class... OutputIndices>
+                static BOOST_MP11_CONSTEXPR14 auto call(F&& f, std::size_t, std::tuple<InputIndices...> inIndices, OutputIndices... outIndices)
+                {
+                    return detail::template call<N, K>(std::forward<F>(f), DELEGATE_FWD(inIndices), DELEGATE_FWD(outIndices)..., mp_size_t<K + 0>());
+                    // return std::forward<F>(f)(mp_size_t<K + 0>());
+                }
+            };
+
+            template<> struct mp_with_index_impl_<2>
+            {
+                template<std::size_t N, std::size_t K, class F, std::unsigned_integral... InputIndices, class... OutputIndices>
+                static BOOST_MP11_CONSTEXPR14 auto call(F&& f, std::size_t i, std::tuple<InputIndices...> inIndices, OutputIndices... outIndices)
+                {
+                    switch (i)
+                    {
+                        BOOST_MP11_UNREACHABLE_DEFAULT
+                    case 0: // return std::forward<F>(f)(mp_size_t<K + 0>());
+                        return detail::template call<N, K>(std::forward<F>(f), DELEGATE_FWD(inIndices), DELEGATE_FWD(outIndices)..., mp_size_t<K + 0>());
+                    case 1: // return std::forward<F>(f)(mp_size_t<K + 1>());
+                        return detail::template call<N, K>(std::forward<F>(f), DELEGATE_FWD(inIndices), DELEGATE_FWD(outIndices)..., mp_size_t<K + 1>());
+                    }
+                }
+            };
+
+            template<> struct mp_with_index_impl_<3>
+            {
+                template<std::size_t N, std::size_t K, class F, std::unsigned_integral... InputIndices, class... OutputIndices>
+                static BOOST_MP11_CONSTEXPR14 auto call(F&& f, std::size_t i, std::tuple<InputIndices...> inIndices, OutputIndices... outIndices)
+                {
+                    switch (i)
+                    {
+                        BOOST_MP11_UNREACHABLE_DEFAULT
+                    case 0: // return std::forward<F>(f)(mp_size_t<K + 0>());
+                        return detail::template call<N, K>(std::forward<F>(f), DELEGATE_FWD(inIndices), DELEGATE_FWD(outIndices)..., mp_size_t<K + 0>());
+                    case 1: // return std::forward<F>(f)(mp_size_t<K + 1>());
+                        return detail::template call<N, K>(std::forward<F>(f), DELEGATE_FWD(inIndices), DELEGATE_FWD(outIndices)..., mp_size_t<K + 1>());
+                    case 2: // return std::forward<F>(f)(mp_size_t<K + 2>());
+                        return detail::template call<N, K>(std::forward<F>(f), DELEGATE_FWD(inIndices), DELEGATE_FWD(outIndices)..., mp_size_t<K + 2>());
+                    }
+                }
+            };
+
+            template<> struct mp_with_index_impl_<4>
+            {
+                template<std::size_t N, std::size_t K, class F, std::unsigned_integral... InputIndices, class... OutputIndices>
+                static BOOST_MP11_CONSTEXPR14 auto call(F&& f, std::size_t i, std::tuple<InputIndices...> inIndices, OutputIndices... outIndices)
+                {
+                    switch (i)
+                    {
+                        BOOST_MP11_UNREACHABLE_DEFAULT
+                    case 0:  // return std::forward<F>(f)(mp_size_t<K + 0>());
+                        return detail::template call<N, K>(std::forward<F>(f), DELEGATE_FWD(inIndices), DELEGATE_FWD(outIndices)..., mp_size_t<K + 0>());
+                    case 1:  // return std::forward<F>(f)(mp_size_t<K + 1>());
+                        return detail::template call<N, K>(std::forward<F>(f), DELEGATE_FWD(inIndices), DELEGATE_FWD(outIndices)..., mp_size_t<K + 1>());
+                    case 2:  // return std::forward<F>(f)(mp_size_t<K + 2>());
+                        return detail::template call<N, K>(std::forward<F>(f), DELEGATE_FWD(inIndices), DELEGATE_FWD(outIndices)..., mp_size_t<K + 2>());
+                    case 3:  // return std::forward<F>(f)(mp_size_t<K + 3>());
+                        return detail::template call<N, K>(std::forward<F>(f), DELEGATE_FWD(inIndices), DELEGATE_FWD(outIndices)..., mp_size_t<K + 3>());
+                    }
+                }
+            };
+
+            template<> struct mp_with_index_impl_<5>
+            {
+                template<std::size_t N, std::size_t K, class F, std::unsigned_integral... InputIndices, class... OutputIndices>
+                static BOOST_MP11_CONSTEXPR14 auto call(F&& f, std::size_t i, std::tuple<InputIndices...> inIndices, OutputIndices... outIndices)
+                {
+                    switch (i)
+                    {
+                        BOOST_MP11_UNREACHABLE_DEFAULT
+                    case 0: // return std::forward<F>(f)(mp_size_t<K + 0>());
+                        return detail::template call<N, K>(std::forward<F>(f), DELEGATE_FWD(inIndices), DELEGATE_FWD(outIndices)..., mp_size_t<K + 0>());
+                    case 1: // return std::forward<F>(f)(mp_size_t<K + 1>());
+                        return detail::template call<N, K>(std::forward<F>(f), DELEGATE_FWD(inIndices), DELEGATE_FWD(outIndices)..., mp_size_t<K + 1>());
+                    case 2: // return std::forward<F>(f)(mp_size_t<K + 2>());
+                        return detail::template call<N, K>(std::forward<F>(f), DELEGATE_FWD(inIndices), DELEGATE_FWD(outIndices)..., mp_size_t<K + 2>());
+                    case 3: // return std::forward<F>(f)(mp_size_t<K + 3>());
+                        return detail::template call<N, K>(std::forward<F>(f), DELEGATE_FWD(inIndices), DELEGATE_FWD(outIndices)..., mp_size_t<K + 3>());
+                    case 4: // return std::forward<F>(f)(mp_size_t<K + 4>());
+                        return detail::template call<N, K>(std::forward<F>(f), DELEGATE_FWD(inIndices), DELEGATE_FWD(outIndices)..., mp_size_t<K + 4>());
+                    }
+                }
+            };
+
+            template<> struct mp_with_index_impl_<6>
+            {
+                template<std::size_t N, std::size_t K, class F, std::unsigned_integral... InputIndices, class... OutputIndices>
+                static BOOST_MP11_CONSTEXPR14 auto call(F&& f, std::size_t i, std::tuple<InputIndices...> inIndices, OutputIndices... outIndices)
+                {
+                    switch (i)
+                    {
+                        BOOST_MP11_UNREACHABLE_DEFAULT
+                    case 0: // return std::forward<F>(f)(mp_size_t<K + 0>());
+                        return detail::template call<N, K>(std::forward<F>(f), DELEGATE_FWD(inIndices), DELEGATE_FWD(outIndices)..., mp_size_t<K + 0>());
+                    case 1: // return std::forward<F>(f)(mp_size_t<K + 1>());
+                        return detail::template call<N, K>(std::forward<F>(f), DELEGATE_FWD(inIndices), DELEGATE_FWD(outIndices)..., mp_size_t<K + 1>());
+                    case 2: // return std::forward<F>(f)(mp_size_t<K + 2>());
+                        return detail::template call<N, K>(std::forward<F>(f), DELEGATE_FWD(inIndices), DELEGATE_FWD(outIndices)..., mp_size_t<K + 2>());
+                    case 3: // return std::forward<F>(f)(mp_size_t<K + 3>());
+                        return detail::template call<N, K>(std::forward<F>(f), DELEGATE_FWD(inIndices), DELEGATE_FWD(outIndices)..., mp_size_t<K + 3>());
+                    case 4: // return std::forward<F>(f)(mp_size_t<K + 4>());
+                        return detail::template call<N, K>(std::forward<F>(f), DELEGATE_FWD(inIndices), DELEGATE_FWD(outIndices)..., mp_size_t<K + 4>());
+                    case 5: // return std::forward<F>(f)(mp_size_t<K + 5>());
+                        return detail::template call<N, K>(std::forward<F>(f), DELEGATE_FWD(inIndices), DELEGATE_FWD(outIndices)..., mp_size_t<K + 5>());
+                    }
+                }
+            };
+
+            template<> struct mp_with_index_impl_<7>
+            {
+                template<std::size_t N, std::size_t K, class F, std::unsigned_integral... InputIndices, class... OutputIndices>
+                static BOOST_MP11_CONSTEXPR14 auto call(F&& f, std::size_t i, std::tuple<InputIndices...> inIndices, OutputIndices... outIndices)
+                {
+                    switch (i)
+                    {
+                        BOOST_MP11_UNREACHABLE_DEFAULT
+                    case 0: // return std::forward<F>(f)(mp_size_t<K + 0>());
+                        return detail::template call<N, K>(std::forward<F>(f), DELEGATE_FWD(inIndices), DELEGATE_FWD(outIndices)..., mp_size_t<K + 0>());
+                    case 1: // return std::forward<F>(f)(mp_size_t<K + 1>());
+                        return detail::template call<N, K>(std::forward<F>(f), DELEGATE_FWD(inIndices), DELEGATE_FWD(outIndices)..., mp_size_t<K + 1>());
+                    case 2: // return std::forward<F>(f)(mp_size_t<K + 2>());
+                        return detail::template call<N, K>(std::forward<F>(f), DELEGATE_FWD(inIndices), DELEGATE_FWD(outIndices)..., mp_size_t<K + 2>());
+                    case 3: // return std::forward<F>(f)(mp_size_t<K + 3>());
+                        return detail::template call<N, K>(std::forward<F>(f), DELEGATE_FWD(inIndices), DELEGATE_FWD(outIndices)..., mp_size_t<K + 3>());
+                    case 4: // return std::forward<F>(f)(mp_size_t<K + 4>());
+                        return detail::template call<N, K>(std::forward<F>(f), DELEGATE_FWD(inIndices), DELEGATE_FWD(outIndices)..., mp_size_t<K + 4>());
+                    case 5: // return std::forward<F>(f)(mp_size_t<K + 5>());
+                        return detail::template call<N, K>(std::forward<F>(f), DELEGATE_FWD(inIndices), DELEGATE_FWD(outIndices)..., mp_size_t<K + 5>());
+                    case 6: // return std::forward<F>(f)(mp_size_t<K + 6>());
+                        return detail::template call<N, K>(std::forward<F>(f), DELEGATE_FWD(inIndices), DELEGATE_FWD(outIndices)..., mp_size_t<K + 6>());
+                    }
+                }
+            };
+
+            template<> struct mp_with_index_impl_<8>
+            {
+                template<std::size_t N, std::size_t K, class F, std::unsigned_integral... InputIndices, class... OutputIndices>
+                static BOOST_MP11_CONSTEXPR14 auto call(F&& f, std::size_t i, std::tuple<InputIndices...> inIndices, OutputIndices... outIndices)
+                {
+                    switch (i)
+                    {
+                        BOOST_MP11_UNREACHABLE_DEFAULT
+                    case 0: // return std::forward<F>(f)(mp_size_t<K + 0>());
+                        return detail::template call<N, K>(std::forward<F>(f), DELEGATE_FWD(inIndices), DELEGATE_FWD(outIndices)..., mp_size_t<K + 0>());
+                    case 1: // return std::forward<F>(f)(mp_size_t<K + 1>());
+                        return detail::template call<N, K>(std::forward<F>(f), DELEGATE_FWD(inIndices), DELEGATE_FWD(outIndices)..., mp_size_t<K + 1>());
+                    case 2: // return std::forward<F>(f)(mp_size_t<K + 2>());
+                        return detail::template call<N, K>(std::forward<F>(f), DELEGATE_FWD(inIndices), DELEGATE_FWD(outIndices)..., mp_size_t<K + 2>());
+                    case 3: // return std::forward<F>(f)(mp_size_t<K + 3>());
+                        return detail::template call<N, K>(std::forward<F>(f), DELEGATE_FWD(inIndices), DELEGATE_FWD(outIndices)..., mp_size_t<K + 3>());
+                    case 4: // return std::forward<F>(f)(mp_size_t<K + 4>());
+                        return detail::template call<N, K>(std::forward<F>(f), DELEGATE_FWD(inIndices), DELEGATE_FWD(outIndices)..., mp_size_t<K + 4>());
+                    case 5: // return std::forward<F>(f)(mp_size_t<K + 5>());
+                        return detail::template call<N, K>(std::forward<F>(f), DELEGATE_FWD(inIndices), DELEGATE_FWD(outIndices)..., mp_size_t<K + 5>());
+                    case 6: // return std::forward<F>(f)(mp_size_t<K + 6>());
+                        return detail::template call<N, K>(std::forward<F>(f), DELEGATE_FWD(inIndices), DELEGATE_FWD(outIndices)..., mp_size_t<K + 6>());
+                    case 7: // return std::forward<F>(f)(mp_size_t<K + 7>());
+                        return detail::template call<N, K>(std::forward<F>(f), DELEGATE_FWD(inIndices), DELEGATE_FWD(outIndices)..., mp_size_t<K + 7>());
+                    }
+                }
+            };
+
+            template<> struct mp_with_index_impl_<9>
+            {
+                template<std::size_t N, std::size_t K, class F, std::unsigned_integral... InputIndices, class... OutputIndices>
+                static BOOST_MP11_CONSTEXPR14 auto call(F&& f, std::size_t i, std::tuple<InputIndices...> inIndices, OutputIndices... outIndices)
+                {
+                    switch (i)
+                    {
+                        BOOST_MP11_UNREACHABLE_DEFAULT
+                    case 0: // return std::forward<F>(f)(mp_size_t<K + 0>());
+                        return detail::template call<N, K>(std::forward<F>(f), DELEGATE_FWD(inIndices), DELEGATE_FWD(outIndices)..., mp_size_t<K + 0>());
+                    case 1: // return std::forward<F>(f)(mp_size_t<K + 1>());
+                        return detail::template call<N, K>(std::forward<F>(f), DELEGATE_FWD(inIndices), DELEGATE_FWD(outIndices)..., mp_size_t<K + 1>());
+                    case 2: // return std::forward<F>(f)(mp_size_t<K + 2>());
+                        return detail::template call<N, K>(std::forward<F>(f), DELEGATE_FWD(inIndices), DELEGATE_FWD(outIndices)..., mp_size_t<K + 2>());
+                    case 3: // return std::forward<F>(f)(mp_size_t<K + 3>());
+                        return detail::template call<N, K>(std::forward<F>(f), DELEGATE_FWD(inIndices), DELEGATE_FWD(outIndices)..., mp_size_t<K + 3>());
+                    case 4: // return std::forward<F>(f)(mp_size_t<K + 4>());
+                        return detail::template call<N, K>(std::forward<F>(f), DELEGATE_FWD(inIndices), DELEGATE_FWD(outIndices)..., mp_size_t<K + 4>());
+                    case 5: // return std::forward<F>(f)(mp_size_t<K + 5>());
+                        return detail::template call<N, K>(std::forward<F>(f), DELEGATE_FWD(inIndices), DELEGATE_FWD(outIndices)..., mp_size_t<K + 5>());
+                    case 6: // return std::forward<F>(f)(mp_size_t<K + 6>());
+                        return detail::template call<N, K>(std::forward<F>(f), DELEGATE_FWD(inIndices), DELEGATE_FWD(outIndices)..., mp_size_t<K + 6>());
+                    case 7: // return std::forward<F>(f)(mp_size_t<K + 7>());
+                        return detail::template call<N, K>(std::forward<F>(f), DELEGATE_FWD(inIndices), DELEGATE_FWD(outIndices)..., mp_size_t<K + 7>());
+                    case 8: // return std::forward<F>(f)(mp_size_t<K + 8>());
+                        return detail::template call<N, K>(std::forward<F>(f), DELEGATE_FWD(inIndices), DELEGATE_FWD(outIndices)..., mp_size_t<K + 8>());
+                    }
+                }
+            };
+
+            template<> struct mp_with_index_impl_<10>
+            {
+                template<std::size_t N, std::size_t K, class F, std::unsigned_integral... InputIndices, class... OutputIndices>
+                static BOOST_MP11_CONSTEXPR14 auto call(F&& f, std::size_t i, std::tuple<InputIndices...> inIndices, OutputIndices... outIndices)
+                {
+                    switch (i)
+                    {
+                        BOOST_MP11_UNREACHABLE_DEFAULT
+                    case 0: // return std::forward<F>(f)(mp_size_t<K + 0>());
+                        return detail::template call<N, K>(std::forward<F>(f), DELEGATE_FWD(inIndices), DELEGATE_FWD(outIndices)..., mp_size_t<K + 0>());
+                    case 1: // return std::forward<F>(f)(mp_size_t<K + 1>());
+                        return detail::template call<N, K>(std::forward<F>(f), DELEGATE_FWD(inIndices), DELEGATE_FWD(outIndices)..., mp_size_t<K + 1>());
+                    case 2: // return std::forward<F>(f)(mp_size_t<K + 2>());
+                        return detail::template call<N, K>(std::forward<F>(f), DELEGATE_FWD(inIndices), DELEGATE_FWD(outIndices)..., mp_size_t<K + 2>());
+                    case 3: // return std::forward<F>(f)(mp_size_t<K + 3>());
+                        return detail::template call<N, K>(std::forward<F>(f), DELEGATE_FWD(inIndices), DELEGATE_FWD(outIndices)..., mp_size_t<K + 3>());
+                    case 4: // return std::forward<F>(f)(mp_size_t<K + 4>());
+                        return detail::template call<N, K>(std::forward<F>(f), DELEGATE_FWD(inIndices), DELEGATE_FWD(outIndices)..., mp_size_t<K + 4>());
+                    case 5: // return std::forward<F>(f)(mp_size_t<K + 5>());
+                        return detail::template call<N, K>(std::forward<F>(f), DELEGATE_FWD(inIndices), DELEGATE_FWD(outIndices)..., mp_size_t<K + 5>());
+                    case 6: // return std::forward<F>(f)(mp_size_t<K + 6>());
+                        return detail::template call<N, K>(std::forward<F>(f), DELEGATE_FWD(inIndices), DELEGATE_FWD(outIndices)..., mp_size_t<K + 6>());
+                    case 7: // return std::forward<F>(f)(mp_size_t<K + 7>());
+                        return detail::template call<N, K>(std::forward<F>(f), DELEGATE_FWD(inIndices), DELEGATE_FWD(outIndices)..., mp_size_t<K + 7>());
+                    case 8: // return std::forward<F>(f)(mp_size_t<K + 8>());
+                        return detail::template call<N, K>(std::forward<F>(f), DELEGATE_FWD(inIndices), DELEGATE_FWD(outIndices)..., mp_size_t<K + 8>());
+                    case 9: // return std::forward<F>(f)(mp_size_t<K + 9>());
+                        return detail::template call<N, K>(std::forward<F>(f), DELEGATE_FWD(inIndices), DELEGATE_FWD(outIndices)..., mp_size_t<K + 9>());
+                    }
+                }
+            };
+
+            template<> struct mp_with_index_impl_<11>
+            {
+                template<std::size_t N, std::size_t K, class F, std::unsigned_integral... InputIndices, class... OutputIndices>
+                static BOOST_MP11_CONSTEXPR14 auto call(F&& f, std::size_t i, std::tuple<InputIndices...> inIndices, OutputIndices... outIndices)
+                {
+                    switch (i)
+                    {
+                        BOOST_MP11_UNREACHABLE_DEFAULT
+                    case 0: // return std::forward<F>(f)(mp_size_t<K + 0>());
+                        return detail::template call<N, K>(std::forward<F>(f), DELEGATE_FWD(inIndices), DELEGATE_FWD(outIndices)..., mp_size_t<K + 0>());
+                    case 1: // return std::forward<F>(f)(mp_size_t<K + 1>());
+                        return detail::template call<N, K>(std::forward<F>(f), DELEGATE_FWD(inIndices), DELEGATE_FWD(outIndices)..., mp_size_t<K + 1>());
+                    case 2: // return std::forward<F>(f)(mp_size_t<K + 2>());
+                        return detail::template call<N, K>(std::forward<F>(f), DELEGATE_FWD(inIndices), DELEGATE_FWD(outIndices)..., mp_size_t<K + 2>());
+                    case 3: // return std::forward<F>(f)(mp_size_t<K + 3>());
+                        return detail::template call<N, K>(std::forward<F>(f), DELEGATE_FWD(inIndices), DELEGATE_FWD(outIndices)..., mp_size_t<K + 3>());
+                    case 4: // return std::forward<F>(f)(mp_size_t<K + 4>());
+                        return detail::template call<N, K>(std::forward<F>(f), DELEGATE_FWD(inIndices), DELEGATE_FWD(outIndices)..., mp_size_t<K + 4>());
+                    case 5: // return std::forward<F>(f)(mp_size_t<K + 5>());
+                        return detail::template call<N, K>(std::forward<F>(f), DELEGATE_FWD(inIndices), DELEGATE_FWD(outIndices)..., mp_size_t<K + 5>());
+                    case 6: // return std::forward<F>(f)(mp_size_t<K + 6>());
+                        return detail::template call<N, K>(std::forward<F>(f), DELEGATE_FWD(inIndices), DELEGATE_FWD(outIndices)..., mp_size_t<K + 6>());
+                    case 7: // return std::forward<F>(f)(mp_size_t<K + 7>());
+                        return detail::template call<N, K>(std::forward<F>(f), DELEGATE_FWD(inIndices), DELEGATE_FWD(outIndices)..., mp_size_t<K + 7>());
+                    case 8: // return std::forward<F>(f)(mp_size_t<K + 8>());
+                        return detail::template call<N, K>(std::forward<F>(f), DELEGATE_FWD(inIndices), DELEGATE_FWD(outIndices)..., mp_size_t<K + 8>());
+                    case 9: // return std::forward<F>(f)(mp_size_t<K + 9>());
+                        return detail::template call<N, K>(std::forward<F>(f), DELEGATE_FWD(inIndices), DELEGATE_FWD(outIndices)..., mp_size_t<K + 9>());
+                    case 10: //return std::forward<F>(f)(mp_size_t<K + 10>());
+                        return detail::template call<N, K>(std::forward<F>(f), DELEGATE_FWD(inIndices), DELEGATE_FWD(outIndices)..., mp_size_t<K + 10>());
+                    }
+                }
+            };
+
+            template<> struct mp_with_index_impl_<12>
+            {
+                template<std::size_t N, std::size_t K, class F, std::unsigned_integral... InputIndices, class... OutputIndices>
+                static BOOST_MP11_CONSTEXPR14 auto call(F&& f, std::size_t i, std::tuple<InputIndices...> inIndices, OutputIndices... outIndices)
+                {
+                    switch (i)
+                    {
+                        BOOST_MP11_UNREACHABLE_DEFAULT
+                    case 0: //return std::forward<F>(f)(mp_size_t<K + 0>());
+                        return detail::template call<N, K>(std::forward<F>(f), DELEGATE_FWD(inIndices), DELEGATE_FWD(outIndices)..., mp_size_t<K + 0>());
+                    case 1: //return std::forward<F>(f)(mp_size_t<K + 1>());
+                        return detail::template call<N, K>(std::forward<F>(f), DELEGATE_FWD(inIndices), DELEGATE_FWD(outIndices)..., mp_size_t<K + 1>());
+                    case 2: //return std::forward<F>(f)(mp_size_t<K + 2>());
+                        return detail::template call<N, K>(std::forward<F>(f), DELEGATE_FWD(inIndices), DELEGATE_FWD(outIndices)..., mp_size_t<K + 2>());
+                    case 3: //return std::forward<F>(f)(mp_size_t<K + 3>());
+                        return detail::template call<N, K>(std::forward<F>(f), DELEGATE_FWD(inIndices), DELEGATE_FWD(outIndices)..., mp_size_t<K + 3>());
+                    case 4: //return std::forward<F>(f)(mp_size_t<K + 4>());
+                        return detail::template call<N, K>(std::forward<F>(f), DELEGATE_FWD(inIndices), DELEGATE_FWD(outIndices)..., mp_size_t<K + 4>());
+                    case 5: //return std::forward<F>(f)(mp_size_t<K + 5>());
+                        return detail::template call<N, K>(std::forward<F>(f), DELEGATE_FWD(inIndices), DELEGATE_FWD(outIndices)..., mp_size_t<K + 5>());
+                    case 6: //return std::forward<F>(f)(mp_size_t<K + 6>());
+                        return detail::template call<N, K>(std::forward<F>(f), DELEGATE_FWD(inIndices), DELEGATE_FWD(outIndices)..., mp_size_t<K + 6>());
+                    case 7: //return std::forward<F>(f)(mp_size_t<K + 7>());
+                        return detail::template call<N, K>(std::forward<F>(f), DELEGATE_FWD(inIndices), DELEGATE_FWD(outIndices)..., mp_size_t<K + 7>());
+                    case 8: //return std::forward<F>(f)(mp_size_t<K + 8>());
+                        return detail::template call<N, K>(std::forward<F>(f), DELEGATE_FWD(inIndices), DELEGATE_FWD(outIndices)..., mp_size_t<K + 8>());
+                    case 9: //return std::forward<F>(f)(mp_size_t<K + 9>());
+                        return detail::template call<N, K>(std::forward<F>(f), DELEGATE_FWD(inIndices), DELEGATE_FWD(outIndices)..., mp_size_t<K + 9>());
+                    case 10: // return std::forward<F>(f)(mp_size_t<K + 10>());
+                        return detail::template call<N, K>(std::forward<F>(f), DELEGATE_FWD(inIndices), DELEGATE_FWD(outIndices)..., mp_size_t<K + 10>());
+                    case 11: // return std::forward<F>(f)(mp_size_t<K + 11>());
+                        return detail::template call<N, K>(std::forward<F>(f), DELEGATE_FWD(inIndices), DELEGATE_FWD(outIndices)..., mp_size_t<K + 11>());
+                    }
+                }
+            };
+
+            template<> struct mp_with_index_impl_<13>
+            {
+                template<std::size_t N, std::size_t K, class F, std::unsigned_integral... InputIndices, class... OutputIndices>
+                static BOOST_MP11_CONSTEXPR14 auto call(F&& f, std::size_t i, std::tuple<InputIndices...> inIndices, OutputIndices... outIndices)
+                {
+                    switch (i)
+                    {
+                        BOOST_MP11_UNREACHABLE_DEFAULT
+                    case 0: // return std::forward<F>(f)(mp_size_t<K + 0>());
+                        return detail::template call<N, K>(std::forward<F>(f), DELEGATE_FWD(inIndices), DELEGATE_FWD(outIndices)..., mp_size_t<K + 0>());
+                    case 1: // return std::forward<F>(f)(mp_size_t<K + 1>());
+                        return detail::template call<N, K>(std::forward<F>(f), DELEGATE_FWD(inIndices), DELEGATE_FWD(outIndices)..., mp_size_t<K + 1>());
+                    case 2: // return std::forward<F>(f)(mp_size_t<K + 2>());
+                        return detail::template call<N, K>(std::forward<F>(f), DELEGATE_FWD(inIndices), DELEGATE_FWD(outIndices)..., mp_size_t<K + 2>());
+                    case 3: // return std::forward<F>(f)(mp_size_t<K + 3>());
+                        return detail::template call<N, K>(std::forward<F>(f), DELEGATE_FWD(inIndices), DELEGATE_FWD(outIndices)..., mp_size_t<K + 3>());
+                    case 4: // return std::forward<F>(f)(mp_size_t<K + 4>());
+                        return detail::template call<N, K>(std::forward<F>(f), DELEGATE_FWD(inIndices), DELEGATE_FWD(outIndices)..., mp_size_t<K + 4>());
+                    case 5: // return std::forward<F>(f)(mp_size_t<K + 5>());
+                        return detail::template call<N, K>(std::forward<F>(f), DELEGATE_FWD(inIndices), DELEGATE_FWD(outIndices)..., mp_size_t<K + 5>());
+                    case 6: // return std::forward<F>(f)(mp_size_t<K + 6>());
+                        return detail::template call<N, K>(std::forward<F>(f), DELEGATE_FWD(inIndices), DELEGATE_FWD(outIndices)..., mp_size_t<K + 6>());
+                    case 7: // return std::forward<F>(f)(mp_size_t<K + 7>());
+                        return detail::template call<N, K>(std::forward<F>(f), DELEGATE_FWD(inIndices), DELEGATE_FWD(outIndices)..., mp_size_t<K + 7>());
+                    case 8: // return std::forward<F>(f)(mp_size_t<K + 8>());
+                        return detail::template call<N, K>(std::forward<F>(f), DELEGATE_FWD(inIndices), DELEGATE_FWD(outIndices)..., mp_size_t<K + 8>());
+                    case 9: // return std::forward<F>(f)(mp_size_t<K + 9>());
+                        return detail::template call<N, K>(std::forward<F>(f), DELEGATE_FWD(inIndices), DELEGATE_FWD(outIndices)..., mp_size_t<K + 9>());
+                    case 10: // return std::forward<F>(f)(mp_size_t<K + 10>());
+                        return detail::template call<N, K>(std::forward<F>(f), DELEGATE_FWD(inIndices), DELEGATE_FWD(outIndices)..., mp_size_t<K + 10>());
+                    case 11: // return std::forward<F>(f)(mp_size_t<K + 11>());
+                        return detail::template call<N, K>(std::forward<F>(f), DELEGATE_FWD(inIndices), DELEGATE_FWD(outIndices)..., mp_size_t<K + 11>());
+                    case 12: // return std::forward<F>(f)(mp_size_t<K + 12>());
+                        return detail::template call<N, K>(std::forward<F>(f), DELEGATE_FWD(inIndices), DELEGATE_FWD(outIndices)..., mp_size_t<K + 12>());
+                    }
+                }
+            };
+
+            template<> struct mp_with_index_impl_<14>
+            {
+                template<std::size_t N, std::size_t K, class F, std::unsigned_integral... InputIndices, class... OutputIndices>
+                static BOOST_MP11_CONSTEXPR14 auto call(F&& f, std::size_t i, std::tuple<InputIndices...> inIndices, OutputIndices... outIndices)
+                {
+                    switch (i)
+                    {
+                        BOOST_MP11_UNREACHABLE_DEFAULT
+                    case 0: //return std::forward<F>(f)(mp_size_t<K + 0>());
+                        return detail::template call<N, K>(std::forward<F>(f), DELEGATE_FWD(inIndices), DELEGATE_FWD(outIndices)..., mp_size_t<K + 0>());
+                    case 1: //return std::forward<F>(f)(mp_size_t<K + 1>());
+                        return detail::template call<N, K>(std::forward<F>(f), DELEGATE_FWD(inIndices), DELEGATE_FWD(outIndices)..., mp_size_t<K + 1>());
+                    case 2: //return std::forward<F>(f)(mp_size_t<K + 2>());
+                        return detail::template call<N, K>(std::forward<F>(f), DELEGATE_FWD(inIndices), DELEGATE_FWD(outIndices)..., mp_size_t<K + 2>());
+                    case 3: //return std::forward<F>(f)(mp_size_t<K + 3>());
+                        return detail::template call<N, K>(std::forward<F>(f), DELEGATE_FWD(inIndices), DELEGATE_FWD(outIndices)..., mp_size_t<K + 3>());
+                    case 4: //return std::forward<F>(f)(mp_size_t<K + 4>());
+                        return detail::template call<N, K>(std::forward<F>(f), DELEGATE_FWD(inIndices), DELEGATE_FWD(outIndices)..., mp_size_t<K + 4>());
+                    case 5: //return std::forward<F>(f)(mp_size_t<K + 5>());
+                        return detail::template call<N, K>(std::forward<F>(f), DELEGATE_FWD(inIndices), DELEGATE_FWD(outIndices)..., mp_size_t<K + 5>());
+                    case 6: //return std::forward<F>(f)(mp_size_t<K + 6>());
+                        return detail::template call<N, K>(std::forward<F>(f), DELEGATE_FWD(inIndices), DELEGATE_FWD(outIndices)..., mp_size_t<K + 6>());
+                    case 7: //return std::forward<F>(f)(mp_size_t<K + 7>());
+                        return detail::template call<N, K>(std::forward<F>(f), DELEGATE_FWD(inIndices), DELEGATE_FWD(outIndices)..., mp_size_t<K + 7>());
+                    case 8: //return std::forward<F>(f)(mp_size_t<K + 8>());
+                        return detail::template call<N, K>(std::forward<F>(f), DELEGATE_FWD(inIndices), DELEGATE_FWD(outIndices)..., mp_size_t<K + 8>());
+                    case 9: //return std::forward<F>(f)(mp_size_t<K + 9>());
+                        return detail::template call<N, K>(std::forward<F>(f), DELEGATE_FWD(inIndices), DELEGATE_FWD(outIndices)..., mp_size_t<K + 9>());
+                    case 10: // return std::forward<F>(f)(mp_size_t<K + 10>());
+                        return detail::template call<N, K>(std::forward<F>(f), DELEGATE_FWD(inIndices), DELEGATE_FWD(outIndices)..., mp_size_t<K + 10>());
+                    case 11: // return std::forward<F>(f)(mp_size_t<K + 11>());
+                        return detail::template call<N, K>(std::forward<F>(f), DELEGATE_FWD(inIndices), DELEGATE_FWD(outIndices)..., mp_size_t<K + 11>());
+                    case 12: // return std::forward<F>(f)(mp_size_t<K + 12>());
+                        return detail::template call<N, K>(std::forward<F>(f), DELEGATE_FWD(inIndices), DELEGATE_FWD(outIndices)..., mp_size_t<K + 12>());
+                    case 13: // return std::forward<F>(f)(mp_size_t<K + 13>());
+                        return detail::template call<N, K>(std::forward<F>(f), DELEGATE_FWD(inIndices), DELEGATE_FWD(outIndices)..., mp_size_t<K + 13>());
+                    }
+                }
+            };
+
+            template<> struct mp_with_index_impl_<15>
+            {
+                template<std::size_t N, std::size_t K, class F, std::unsigned_integral... InputIndices, class... OutputIndices>
+                static BOOST_MP11_CONSTEXPR14 auto call(F&& f, std::size_t i, std::tuple<InputIndices...> inIndices, OutputIndices... outIndices)
+                {
+                    switch (i)
+                    {
+                        BOOST_MP11_UNREACHABLE_DEFAULT
+                    case 0: // return std::forward<F>(f)(mp_size_t<K + 0>());
+                        return detail::template call<N, K>(std::forward<F>(f), DELEGATE_FWD(inIndices), DELEGATE_FWD(outIndices)..., mp_size_t<K + 0>());
+                    case 1: // return std::forward<F>(f)(mp_size_t<K + 1>());
+                        return detail::template call<N, K>(std::forward<F>(f), DELEGATE_FWD(inIndices), DELEGATE_FWD(outIndices)..., mp_size_t<K + 1>());
+                    case 2: // return std::forward<F>(f)(mp_size_t<K + 2>());
+                        return detail::template call<N, K>(std::forward<F>(f), DELEGATE_FWD(inIndices), DELEGATE_FWD(outIndices)..., mp_size_t<K + 2>());
+                    case 3: // return std::forward<F>(f)(mp_size_t<K + 3>());
+                        return detail::template call<N, K>(std::forward<F>(f), DELEGATE_FWD(inIndices), DELEGATE_FWD(outIndices)..., mp_size_t<K + 3>());
+                    case 4: // return std::forward<F>(f)(mp_size_t<K + 4>());
+                        return detail::template call<N, K>(std::forward<F>(f), DELEGATE_FWD(inIndices), DELEGATE_FWD(outIndices)..., mp_size_t<K + 4>());
+                    case 5: // return std::forward<F>(f)(mp_size_t<K + 5>());
+                        return detail::template call<N, K>(std::forward<F>(f), DELEGATE_FWD(inIndices), DELEGATE_FWD(outIndices)..., mp_size_t<K + 5>());
+                    case 6: // return std::forward<F>(f)(mp_size_t<K + 6>());
+                        return detail::template call<N, K>(std::forward<F>(f), DELEGATE_FWD(inIndices), DELEGATE_FWD(outIndices)..., mp_size_t<K + 6>());
+                    case 7: // return std::forward<F>(f)(mp_size_t<K + 7>());
+                        return detail::template call<N, K>(std::forward<F>(f), DELEGATE_FWD(inIndices), DELEGATE_FWD(outIndices)..., mp_size_t<K + 7>());
+                    case 8: // return std::forward<F>(f)(mp_size_t<K + 8>());
+                        return detail::template call<N, K>(std::forward<F>(f), DELEGATE_FWD(inIndices), DELEGATE_FWD(outIndices)..., mp_size_t<K + 8>());
+                    case 9: // return std::forward<F>(f)(mp_size_t<K + 9>());
+                        return detail::template call<N, K>(std::forward<F>(f), DELEGATE_FWD(inIndices), DELEGATE_FWD(outIndices)..., mp_size_t<K + 9>());
+                    case 10: // return std::forward<F>(f)(mp_size_t<K + 10>());
+                        return detail::template call<N, K>(std::forward<F>(f), DELEGATE_FWD(inIndices), DELEGATE_FWD(outIndices)..., mp_size_t<K + 10>());
+                    case 11: // return std::forward<F>(f)(mp_size_t<K + 11>());
+                        return detail::template call<N, K>(std::forward<F>(f), DELEGATE_FWD(inIndices), DELEGATE_FWD(outIndices)..., mp_size_t<K + 11>());
+                    case 12: // return std::forward<F>(f)(mp_size_t<K + 12>());
+                        return detail::template call<N, K>(std::forward<F>(f), DELEGATE_FWD(inIndices), DELEGATE_FWD(outIndices)..., mp_size_t<K + 12>());
+                    case 13: // return std::forward<F>(f)(mp_size_t<K + 13>());
+                        return detail::template call<N, K>(std::forward<F>(f), DELEGATE_FWD(inIndices), DELEGATE_FWD(outIndices)..., mp_size_t<K + 13>());
+                    case 14: // return std::forward<F>(f)(mp_size_t<K + 14>());
+                        return detail::template call<N, K>(std::forward<F>(f), DELEGATE_FWD(inIndices), DELEGATE_FWD(outIndices)..., mp_size_t<K + 14>());
+                    }
+                }
+            };
+
+            template<> struct mp_with_index_impl_<16>
+            {
+                template<std::size_t N, std::size_t K, class F, std::unsigned_integral... InputIndices, class... OutputIndices>
+                static BOOST_MP11_CONSTEXPR14 auto call(F&& f, std::size_t i, std::tuple<InputIndices...> inIndices, OutputIndices... outIndices)
+                {
+                    switch (i)
+                    {
+                        BOOST_MP11_UNREACHABLE_DEFAULT
+                    case 0: // return std::forward<F>(f)(mp_size_t<K + 0>());
+                        return detail::template call<N, K>(std::forward<F>(f), DELEGATE_FWD(inIndices), DELEGATE_FWD(outIndices)..., mp_size_t<K + 0>());
+                    case 1: // return std::forward<F>(f)(mp_size_t<K + 1>());
+                        return detail::template call<N, K>(std::forward<F>(f), DELEGATE_FWD(inIndices), DELEGATE_FWD(outIndices)..., mp_size_t<K + 1>());
+                    case 2: // return std::forward<F>(f)(mp_size_t<K + 2>());
+                        return detail::template call<N, K>(std::forward<F>(f), DELEGATE_FWD(inIndices), DELEGATE_FWD(outIndices)..., mp_size_t<K + 2>());
+                    case 3: // return std::forward<F>(f)(mp_size_t<K + 3>());
+                        return detail::template call<N, K>(std::forward<F>(f), DELEGATE_FWD(inIndices), DELEGATE_FWD(outIndices)..., mp_size_t<K + 3>());
+                    case 4: // return std::forward<F>(f)(mp_size_t<K + 4>());
+                        return detail::template call<N, K>(std::forward<F>(f), DELEGATE_FWD(inIndices), DELEGATE_FWD(outIndices)..., mp_size_t<K + 4>());
+                    case 5: // return std::forward<F>(f)(mp_size_t<K + 5>());
+                        return detail::template call<N, K>(std::forward<F>(f), DELEGATE_FWD(inIndices), DELEGATE_FWD(outIndices)..., mp_size_t<K + 5>());
+                    case 6: // return std::forward<F>(f)(mp_size_t<K + 6>());
+                        return detail::template call<N, K>(std::forward<F>(f), DELEGATE_FWD(inIndices), DELEGATE_FWD(outIndices)..., mp_size_t<K + 6>());
+                    case 7: // return std::forward<F>(f)(mp_size_t<K + 7>());
+                        return detail::template call<N, K>(std::forward<F>(f), DELEGATE_FWD(inIndices), DELEGATE_FWD(outIndices)..., mp_size_t<K + 7>());
+                    case 8: // return std::forward<F>(f)(mp_size_t<K + 8>());
+                        return detail::template call<N, K>(std::forward<F>(f), DELEGATE_FWD(inIndices), DELEGATE_FWD(outIndices)..., mp_size_t<K + 8>());
+                    case 9: // return std::forward<F>(f)(mp_size_t<K + 9>());
+                        return detail::template call<N, K>(std::forward<F>(f), DELEGATE_FWD(inIndices), DELEGATE_FWD(outIndices)..., mp_size_t<K + 9>());
+                    case 10: // return std::forward<F>(f)(mp_size_t<K + 10>());
+                        return detail::template call<N, K>(std::forward<F>(f), DELEGATE_FWD(inIndices), DELEGATE_FWD(outIndices)..., mp_size_t<K + 10>());
+                    case 11: // return std::forward<F>(f)(mp_size_t<K + 11>());
+                        return detail::template call<N, K>(std::forward<F>(f), DELEGATE_FWD(inIndices), DELEGATE_FWD(outIndices)..., mp_size_t<K + 11>());
+                    case 12: // return std::forward<F>(f)(mp_size_t<K + 12>());
+                        return detail::template call<N, K>(std::forward<F>(f), DELEGATE_FWD(inIndices), DELEGATE_FWD(outIndices)..., mp_size_t<K + 12>());
+                    case 13: // return std::forward<F>(f)(mp_size_t<K + 13>());
+                        return detail::template call<N, K>(std::forward<F>(f), DELEGATE_FWD(inIndices), DELEGATE_FWD(outIndices)..., mp_size_t<K + 13>());
+                    case 14: // return std::forward<F>(f)(mp_size_t<K + 14>());
+                        return detail::template call<N, K>(std::forward<F>(f), DELEGATE_FWD(inIndices), DELEGATE_FWD(outIndices)..., mp_size_t<K + 14>());
+                    case 15: // return std::forward<F>(f)(mp_size_t<K + 15>());
+                        return detail::template call<N, K>(std::forward<F>(f), DELEGATE_FWD(inIndices), DELEGATE_FWD(outIndices)..., mp_size_t<K + 15>());
+                    }
+                }
+            };
+        } // namespace detail
+
+        template<std::size_t N, class F, class... Indices>
+        inline BOOST_MP11_CONSTEXPR14 auto mp_with_index(F&& f, std::tuple<Indices...> indices)
+        {
+            if constexpr (sizeof...(Indices) == 0u)
+                return std::forward<F>(f)();
+            else
+            {
+                // const auto inIndices = std::make_tuple(std::forward<Indices>(indices)...);
+
+                return detail::template call<N, 0>(std::forward<F>(f), std::move(indices));
+            }
+        }
+
+        //template<class N, class F, std::unsigned_integral... Indices>
+        //inline BOOST_MP11_CONSTEXPR14 auto mp_with_index(F&& f, Indices&&... indices)
+        //{
+        //    return mp_with_index<std::size_t { N::value }>(std::forward<F>(f), std::forward<Indices>(indices)...);
+        //}
+
+#undef BOOST_MP11_CONSTEXPR14
+#undef BOOST_MP11_UNREACHABLE_DEFAULT
+
+    } // namespace mp11
+} // namespace boost
 
 namespace axl
 {
@@ -706,6 +1251,41 @@ namespace axl
         }
     } // !namespace detail
 
+    enum ArgumentState : std::size_t
+    {
+        IsOriginal = 0x00,
+        IsLValue = 0x01,
+        IsRValue = 0x02,
+        IsVolatile = 0x04,
+        IsConst = 0x08,
+    };
+
+    template<ArgumentState State>
+    struct Argument
+    {
+        static constexpr bool is_original = static_cast<bool>(State & ArgumentState::IsOriginal);
+        static constexpr bool is_lvalue   = static_cast<bool>(State & ArgumentState::IsLValue);
+        static constexpr bool is_rvalue   = static_cast<bool>(State & ArgumentState::IsRValue);
+        static constexpr bool is_const    = static_cast<bool>(State & ArgumentState::IsConst);
+        static constexpr bool is_volatile = static_cast<bool>(State & ArgumentState::IsVolatile);
+    };
+
+    using FixedArgument = std::variant<
+        Argument<IsOriginal>,
+        Argument<static_cast<ArgumentState>(IsOriginal | IsConst)>,
+        Argument<static_cast<ArgumentState>(IsOriginal | IsVolatile)>,
+        Argument<static_cast<ArgumentState>(IsOriginal | IsConst | IsVolatile)>,
+
+        Argument<IsLValue>,
+        Argument<static_cast<ArgumentState>(IsLValue | IsConst)>,
+        Argument<static_cast<ArgumentState>(IsLValue | IsVolatile)>,
+        Argument<static_cast<ArgumentState>(IsLValue | IsConst | IsVolatile)>,
+
+        Argument<IsRValue>,
+        Argument<static_cast<ArgumentState>(IsRValue | IsConst)>,
+        Argument<static_cast<ArgumentState>(IsRValue | IsVolatile)>,
+        Argument<static_cast<ArgumentState>(IsRValue | IsConst | IsVolatile)>
+    >;
 
         struct FunctionArgument
         {
@@ -738,6 +1318,40 @@ namespace axl
                 , isLValue   { isLValue   }
             {}
 
+            operator FixedArgument() const noexcept
+            {
+                if (isLValue)
+                {
+                    if (isConst)
+                    {
+                        if (isVolatile)
+                            return FixedArgument(std::in_place_type<Argument<static_cast<ArgumentState>(IsLValue | IsConst | IsVolatile)>>);
+                        
+                        return FixedArgument(std::in_place_type<Argument<static_cast<ArgumentState>(IsLValue | IsConst)>>);
+                    }
+                    return FixedArgument(std::in_place_type<Argument<static_cast<ArgumentState>(IsLValue)>>);
+                }
+                if (isRValue)
+                {
+                    if (isConst)
+                    {
+                        if (isVolatile)
+                            return FixedArgument(std::in_place_type<Argument<static_cast<ArgumentState>(IsRValue | IsConst | IsVolatile)>>);
+
+                        return FixedArgument(std::in_place_type<Argument<static_cast<ArgumentState>(IsRValue | IsConst)>>);
+                    }
+                    return FixedArgument(std::in_place_type<Argument<static_cast<ArgumentState>(IsRValue)>>);
+                }
+                if (isConst)
+                {
+                    if (isVolatile)
+                        return FixedArgument(std::in_place_type<Argument<static_cast<ArgumentState>(IsOriginal | IsConst | IsVolatile)>>);
+
+                    return FixedArgument(std::in_place_type<Argument<static_cast<ArgumentState>(IsOriginal | IsConst)>>);
+                }
+                return FixedArgument(std::in_place_type<Argument<static_cast<ArgumentState>(IsOriginal)>>);
+            }
+
             bool isConst = false;
             bool isVolatile = false;
             bool isRValue = false;
@@ -747,11 +1361,11 @@ namespace axl
         class FunctionSignature
         {
         public:
-            constexpr FunctionSignature(std::string_view representation) noexcept
+            consteval FunctionSignature(std::string_view representation) noexcept
                 : _representation { representation }
             {}
 
-            constexpr auto numberOfArguments() const noexcept -> std::size_t
+            consteval auto numberOfArguments() const noexcept -> std::size_t
             {
                 std::size_t separators = 0;
         
@@ -785,7 +1399,29 @@ namespace axl
                 return {};
             }
 
-            constexpr auto _nthArgument(std::size_t index) const noexcept -> std::string_view
+            template<std::size_t index>
+            consteval auto nthArgument() const noexcept -> FunctionArgument
+            {
+                std::size_t offset = _representation.find_last_of('(');
+
+                for (std::size_t separators = 0; offset != std::string_view::npos;)
+                {
+                    offset++;
+
+                    if (separators++ == index)
+                    {
+                        const std::size_t end = _representation.find_first_of(",)", offset);
+
+                        return _representation.substr(offset, end - offset);
+                    }
+
+                    offset = _representation.find(',', offset);
+                }
+
+                return {};
+            }
+
+            consteval auto _nthArgument(std::size_t index) const noexcept -> std::string_view
             {
                 std::size_t offset = _representation.find_last_of('(');
 
@@ -831,7 +1467,7 @@ namespace axl
             constexpr virtual bool isCompatibleWith(const IMetaFunction&) const noexcept = 0;
             
             template<class F>
-            static constexpr auto fromFunctionType() noexcept
+            static consteval auto fromFunctionType() noexcept
             {
                 using FunctionPointer = traits::function_pointer_t<F>;
 
@@ -842,8 +1478,20 @@ namespace axl
                     return metaFunction;
                 }(reinterpret_cast<FunctionPointer>(nullptr));
             }
-        };
 
+            template<class F>
+            static consteval auto pointerFromFunctionType() noexcept -> IMetaFunction*
+            {
+                using FunctionPointer = traits::function_pointer_t<F>;
+
+                return[]<typename R, typename... Args>(R(*)(Args...)) constexpr
+                {
+                    static constexpr MetaFunction<R, Args...> metaFunction{};
+
+                    return &metaFunction;
+                }(reinterpret_cast<FunctionPointer>(nullptr));
+            }
+        };
 
             template<class Parameter>
             using InvokedParameter = std::variant<
@@ -891,29 +1539,6 @@ namespace axl
                 RValueVolatile,
             };
 
-            template<class Arg>
-            using ParameterType = std::variant<
-                std::integral_constant<InvokedParameterType, InvokedParameterType::Original>,
-                std::integral_constant<InvokedParameterType, InvokedParameterType::CV>,
-                std::integral_constant<InvokedParameterType, InvokedParameterType::Const>,
-                std::integral_constant<InvokedParameterType, InvokedParameterType::Volatile>,
-
-                std::integral_constant<InvokedParameterType, InvokedParameterType::Unreferenced>,
-                std::integral_constant<InvokedParameterType, InvokedParameterType::UnreferencedCV>,
-                std::integral_constant<InvokedParameterType, InvokedParameterType::UnreferencedConst>,
-                std::integral_constant<InvokedParameterType, InvokedParameterType::UnreferencedVolatile>,
-
-                std::integral_constant<InvokedParameterType, InvokedParameterType::LValue>,
-                std::integral_constant<InvokedParameterType, InvokedParameterType::LValueCV>,
-                std::integral_constant<InvokedParameterType, InvokedParameterType::LValueConst>,
-                std::integral_constant<InvokedParameterType, InvokedParameterType::LValueVolatile>,
-
-                std::integral_constant<InvokedParameterType, InvokedParameterType::RValue>,
-                std::integral_constant<InvokedParameterType, InvokedParameterType::RValueCV>,
-                std::integral_constant<InvokedParameterType, InvokedParameterType::RValueConst>,
-                std::integral_constant<InvokedParameterType, InvokedParameterType::RValueVolatile>
-            >;
-
         template<class R, class... Args>
         class MetaFunction : public IMetaFunction
         {
@@ -942,49 +1567,10 @@ namespace axl
                 return signature;
             }
             
-            constexpr auto nthArgument(std::size_t i) const noexcept -> FunctionArgument override
+            constexpr auto nthArgument(std::size_t index) const noexcept -> FunctionArgument override
             {
-                return signature().nthArgument(i);
-/*                switch (i)
-                {
-                case 0:  return FunctionArgument::fromConcreteArg<NthTypeOf<0>>();
-                case 1:  return FunctionArgument::fromConcreteArg<NthTypeOf<1>>();
-                case 2:  return FunctionArgument::fromConcreteArg<NthTypeOf<2>>();
-                case 3:  return FunctionArgument::fromConcreteArg<NthTypeOf<3>>();
-                case 4:  return FunctionArgument::fromConcreteArg<NthTypeOf<4>>();
-                case 5:  return FunctionArgument::fromConcreteArg<NthTypeOf<5>>();
-                case 6:  return FunctionArgument::fromConcreteArg<NthTypeOf<6>>();
-                case 7:  return FunctionArgument::fromConcreteArg<NthTypeOf<7>>();
-                case 8:  return FunctionArgument::fromConcreteArg<NthTypeOf<8>>();
-                case 9:  return FunctionArgument::fromConcreteArg<NthTypeOf<9>>();
-                case 10: return FunctionArgument::fromConcreteArg<NthTypeOf<10>>();
-                case 11: return FunctionArgument::fromConcreteArg<NthTypeOf<11>>();
-                case 12: return FunctionArgument::fromConcreteArg<NthTypeOf<12>>();
-                case 13: return FunctionArgument::fromConcreteArg<NthTypeOf<13>>();
-                case 14: return FunctionArgument::fromConcreteArg<NthTypeOf<14>>();
-                case 15: return FunctionArgument::fromConcreteArg<NthTypeOf<15>>();
-                case 16: return FunctionArgument::fromConcreteArg<NthTypeOf<16>>();
-                case 17: return FunctionArgument::fromConcreteArg<NthTypeOf<17>>();
-                case 18: return FunctionArgument::fromConcreteArg<NthTypeOf<18>>();
-                case 19: return FunctionArgument::fromConcreteArg<NthTypeOf<19>>();
-                case 20: return FunctionArgument::fromConcreteArg<NthTypeOf<20>>();
-                default: return FunctionArgument::fromConcreteArg<NthTypeOf<0>>();
-                }   */ 
-
-                //static_assert(false, "Functions with more than 20 arguments are not supported yet.");
+                return signature().nthArgument(index);
             }
-
-            enum class CompatibilityError
-            {
-                None,
-                DifferentParameters,
-                NotLValue,
-                IsLValue,
-                IsConst,
-                IsVolatile,
-                NotCopiable,
-                NotMovable,
-            };
 
             constexpr bool isCompatibleWith(const IMetaFunction& rhs) const noexcept override
             {
@@ -998,21 +1584,18 @@ namespace axl
 
                 constexpr auto Indices = std::make_index_sequence<sizeof...(Args)>();
 
-                std::size_t i = 0;
-                return (... && isArgumentCompatibleWith<Args>(rhs.nthArgument(i++)));
+                //std::size_t i = 0;
+                //return (... && isArgumentCompatibleWith<Args>(rhs.nthArgument(i++)));
 
-
-                //return []<std::size_t... I>(const IMetaFunction& rhs, std::index_sequence<I...>) {
-                //    return (... && isArgumentCompatibleWith<NthTypeOf<I>>(rhs.nthArgument(I)));
-                //}(rhs, Indices);
+                return [&rhs]<std::size_t... I>(std::index_sequence<I...>) {
+                    return (... && isArgumentCompatibleWith<NthTypeOf<I>>(rhs.nthArgument(I)));
+                }(Indices);
             }
 
         private:
             template<class OriginalArg>
             static constexpr bool isArgumentCompatibleWith(FunctionArgument invoked) noexcept
             {
-                constexpr auto test = detail::typeName<void(*)(OriginalArg)>();
-
                 if constexpr (std::is_lvalue_reference_v<OriginalArg>)
                 {
                     if constexpr (std::is_const_v<std::remove_reference_t<OriginalArg>>)
@@ -1043,53 +1626,47 @@ namespace axl
 
                 return true;
             }
-
-            template<class... Args>
-            static constexpr bool all(Args... args) noexcept { return (... && args); }
             
         public:
-            static constexpr decltype(auto) getInvokedSignatureType(const IMetaFunction& rhs) noexcept
+            template<class Proxy, class Delegate>
+            static constexpr decltype(auto) getProxyForFunction(const IMetaFunction& rhs) noexcept
             {
+                constexpr auto self = IMetaFunction::fromFunctionType<R(*)(Args...)>();
+
+                if (const bool isRhsInvokable = self.isCompatibleWith(rhs); !isRhsInvokable)
+                    return reinterpret_cast<void(*)()>(nullptr);
+
                 constexpr auto Indices = std::make_index_sequence<sizeof...(Args)>();
 
                 return []<std::size_t... I> (const IMetaFunction& rhs, std::index_sequence<I...>) {
-                    return [](auto... args) {
-                        return toFunctionPointer(getInvokedParameterType<Args>(args)...);
-                    }(rhs.nthArgument(I)...);
+                    return toFunctionPointer<Proxy, Delegate>(std::make_tuple(static_cast<std::size_t>(getInvokedParameterType<Args>(rhs.nthArgument(I)))...));
                 }(rhs, Indices);
-
-                //std::size_t i = 0;
-
-                //return toFunctionPointer(getInvokedParameterType<Args>(rhs.nthArgument(i++))...);
-
-
-                // 1. Split the signature into a list of std::string_view
-                // 2. Returns something like this:
-                //      to_function_pointer(transform<Args, Indices>(list)...)
             }
 
         private:
-            template<class Arg>
-            static constexpr auto getInvokedParameterType(FunctionArgument target) noexcept -> ParameterType<Arg>
+            template<class Arg/*, class InvokedArg*/>
+            static constexpr auto getInvokedParameterType(FunctionArgument invokedArg) noexcept -> InvokedParameterType
             {
+
                 if constexpr (std::is_lvalue_reference_v<Arg>)
                 {
                     // The original argument is a lvalue, so the target needs to be a lvalue too,
                     // otherwise it will result in an Undefined Behavior.
 
                     // The argument is a lvalue, as expected
-                    return addCVQualifiersIfRequired<Arg>(target);
+                    return addCVQualifiersIfRequired</*InvokedArg, */Arg>(invokedArg);
                 }
         
-                if constexpr (std::is_rvalue_reference_v<Arg>)
+                else if constexpr (std::is_rvalue_reference_v<Arg>)
                 {
                     // The original argument is a Arg&&, so the target needs to be either an Arg&& or an Arg,
                     // since lvalues are not transformable into rvalues.
 
-                    if (target.isRValue)
+                    if (invokedArg.isRValue)
+                    // if constexpr (InvokedArg::is_rvalue)
                     {
                         // The argument is a rvalue, as expected
-                        return addCVQualifiersIfRequired<Arg>(target);
+                        return addCVQualifiersIfRequired</*InvokedArg, */Arg>(invokedArg);
                     }
 
                     static_assert(
@@ -1099,10 +1676,11 @@ namespace axl
 
                     // If the function is invoked with a non-reference, it entails that a move will
                     // be made at some point.
-                    return addCVQualifiersIfRequired<Arg, std::remove_reference_t<Arg>>(target);
+                    return addCVQualifiersIfRequired</*InvokedArg, */Arg, std::remove_reference_t<Arg>>(invokedArg);
                 }
 
-                if (target.isLValue)
+                else if (invokedArg.isLValue)
+                // else if constexpr (InvokedArg::is_lvalue)
                 {
                     static_assert(
                         std::is_copy_constructible_v<Arg>,
@@ -1111,10 +1689,11 @@ namespace axl
 
                     // If the function is invoked with a lvalue reference, it entails that a copy will
                     // be made at some point.
-                    return addCVQualifiersIfRequired<Arg, std::add_lvalue_reference_t<Arg>>(target);
+                    return addCVQualifiersIfRequired</*InvokedArg, */Arg, std::add_lvalue_reference_t<Arg>>(invokedArg);
                 }
 
-                if (target.isRValue)
+                if (invokedArg.isRValue)
+                // else if constexpr (InvokedArg::is_rvalue)
                 {
                     static_assert(
                         std::is_move_constructible_v<Arg>,
@@ -1123,45 +1702,52 @@ namespace axl
 
                     // If the function is invoked with a rvalue reference, it entails that a move will
                     // be made at some point.
-                    return addCVQualifiersIfRequired<Arg, std::add_rvalue_reference_t<Arg>>(target);
+                    return addCVQualifiersIfRequired</*InvokedArg, */Arg, std::add_rvalue_reference_t<Arg>>(invokedArg);
                 }
-
-                // The argument is not a reference, as expected
-                return addCVQualifiersIfRequired<Arg>(target);
+                else
+                {
+                    // The argument is not a reference, as expected
+                    return addCVQualifiersIfRequired</*InvokedArg, */Arg>(invokedArg);
+                }
             }
 
-            template<class Arg, class InvokedArg = Arg>
+            template</*class Invoked, */class Arg, class InvokedArg = Arg>
             // requires std::same_as<std::decay_t<Arg>, std::decay_t<InvokedArg>>
-            static constexpr auto addCVQualifiersIfRequired(FunctionArgument target) noexcept -> ParameterType<Arg>
+            static constexpr auto addCVQualifiersIfRequired(FunctionArgument invokedArg) noexcept -> InvokedParameterType
             {
-                if (target.isConst && target.isVolatile)
+                if (invokedArg.isConst && invokedArg.isVolatile)
+                // if constexpr (Invoked::is_const && Invoked::is_volatile)
                 {
-                    constexpr auto type = getInvokedParameterType<InvokedArg, true, true>();
+                    constexpr auto type = getExactParameterType<InvokedArg, true, true>();
 
-                    return ParameterType<Arg>(std::in_place_index<static_cast<std::size_t>(type)>);
+                    return type;
                 }
-                if (target.isConst)
+                else if (invokedArg.isConst)
+                // if constexpr (Invoked::is_const)
                 {
-                    constexpr auto type = getInvokedParameterType<InvokedArg, true, false>();
+                    constexpr auto type = getExactParameterType<InvokedArg, true, false>();
 
-                    return ParameterType<Arg>(std::in_place_index<static_cast<std::size_t>(type)>);
+                    return type;
                 }
-                if (target.isVolatile)
+                if (invokedArg.isVolatile)
+                // if constexpr (Invoked::is_volatile)
                 {
-                    constexpr auto type = getInvokedParameterType<InvokedArg, false, true>();
+                    constexpr auto type = getExactParameterType<InvokedArg, false, true>();
 
-                    return ParameterType<Arg>(std::in_place_index<static_cast<std::size_t>(type)>);
+                    return type;
                 }
+                else
+                {
+                    constexpr auto type = getExactParameterType<InvokedArg, false, false>();
 
-                constexpr auto type = getInvokedParameterType<InvokedArg, false, false>();
-
-                return ParameterType<Arg>(std::in_place_index<static_cast<std::size_t>(type)>);
+                    return type;
+                }
             }
 
-            template<class InvokedArg, bool IsConst, bool IsVolatile>
-            static constexpr auto getInvokedParameterType() noexcept -> InvokedParameterType
+            template<class Arg, bool IsConst, bool IsVolatile>
+            static constexpr auto getExactParameterType() noexcept -> InvokedParameterType
             {
-                if constexpr (std::is_rvalue_reference_v<InvokedArg>)
+                if constexpr (std::is_rvalue_reference_v<Arg>)
                 {
                     if constexpr (IsConst && IsVolatile)
                         return InvokedParameterType::RValueCV;
@@ -1172,7 +1758,7 @@ namespace axl
                     else
                         return InvokedParameterType::RValue;
                 }
-                else if constexpr (std::is_lvalue_reference_v<InvokedArg>)
+                else if constexpr (std::is_lvalue_reference_v<Arg>)
                 {
                     if constexpr (IsConst && IsVolatile)
                         return InvokedParameterType::LValueCV;
@@ -1196,22 +1782,25 @@ namespace axl
                 }
             }
 
-            // TODO: Try to serialize the qualifiers to get a FixedString and use it here in a lambda to get the right
-            // type
-            static constexpr decltype(auto) toFunctionPointer(ParameterType<Args>... args) noexcept
+            template<class Arg, std::size_t I>
+            using Type = typename std::variant_alternative_t<I, InvokedParameter<Arg>>;
+
+            template<class Proxy, class Delegate, typename... Types>
+            static constexpr auto toFunctionPointer(std::tuple<Types...>&& types) noexcept -> void(*)()
             {
-                /*using OpaqueTuple = std::tuple<decltype(std::visit([](auto v) -> decltype(auto) { return *v; }, args))...>;
+                constexpr auto N = std::variant_size_v<InvokedParameter<int>>;
 
-                return []<class... Parameters>(std::tuple<Parameters...>*) {
-                    return static_cast<R(*)(Parameters...)>(nullptr);
-                }(reinterpret_cast<OpaqueTuple*>(nullptr));*/
+                static_assert(sizeof...(Types) == sizeof...(Args));
 
-                // const auto opaqueTuple = std::make_tuple(std::visit([](auto v) -> auto { return v; }, args)...);
-                using OpaqueTuple = std::tuple<decltype(std::visit([](auto v) -> decltype(auto) { return v; }, args))... > ;
+                constexpr auto makeProxyFunction = []<class... Constants>(Constants&&...) constexpr {
+                    using FunctionProxy = traits::delegate_proxy_t<R(*)(Type<Args, Constants::value>...), Delegate>;
 
-                return []<class... Parameters>(std::tuple<Parameters...>*) {
-                    return static_cast<R(*)(std::variant_alternative_t<static_cast<std::size_t>(Parameters::value), InvokedParameter<Args>>...)>(nullptr);
-                }(reinterpret_cast<OpaqueTuple*>(nullptr));
+                    constexpr FunctionProxy proxy = Proxy();
+
+                    return reinterpret_cast<void(*)()>(proxy);
+                };
+
+                return boost::mp11::mp_with_index<N>(makeProxyFunction, std::move(types));
             }
         };
 
@@ -1382,7 +1971,7 @@ namespace axl
         }
 
         template<class R, class... Args>
-        constexpr Delegate(R(*target)(Args...)) noexcept
+        constexpr Delegate(R (*target)(Args...)) noexcept
             : _function { reinterpret_cast<AnyTarget>(target)   }
             , _wrapper  { &executeStatelessCallable<R, Args...> }
         {}
@@ -1466,8 +2055,6 @@ namespace axl
         }
 
     public:
-        using MetaFunctionBuilder = const IMetaFunction& (*)();
-
         template<class... Args>
         constexpr auto operator ()(Args&&... args) const -> Ret
         {
@@ -1475,9 +2062,9 @@ namespace axl
 
             constexpr MetaFunction<Ret, Args...> invokedFunction {};
 
-            std::cout << std::format("Real Proxy => [{}].", detail::typeName<ProxyFunction>()) << std::endl;
+            //std::cout << std::format("Real Proxy => [{}].", detail::typeName<ProxyFunction>()) << std::endl;
 
-            std::cout << "Real Proxy Signature => " << invokedFunction.signature().representation() << std::endl;
+            //std::cout << "Real Proxy Signature => " << invokedFunction.signature().representation() << std::endl;
 
             const auto function = _wrapper(invokedFunction, true);
             const auto proxy    = reinterpret_cast<ProxyFunction>(function);
@@ -1793,7 +2380,7 @@ namespace axl
             const bool throwOnMismatch
         ) -> AnyTarget
         {
-            constexpr auto proxy = []<class... Invoked>(const Delegate * self, Invoked&&... args) constexpr -> Ret {
+            constexpr auto proxy = []<class... Invoked>(const Delegate *, Invoked&&... args) constexpr -> Ret {
                 return invoke(F{}, DELEGATE_FWD(args)...);
             };
 
@@ -1836,39 +2423,29 @@ namespace axl
         static constexpr auto getProxyFunction(
             const IMetaFunction& invoked,
             const bool throwOnMismatch
-        )
+        ) -> AnyTarget
         {
             constexpr auto target = IMetaFunction::fromFunctionType<Target>();
-                
-            if (!target.isCompatibleWith(invoked))
-            {
-                if (throwOnMismatch)
-                    throw BadDelegateArguments(target.signature(), invoked.signature());
 
-                return reinterpret_cast<AnyTarget>(nullptr);
-            }
+            if (const auto proxy = target.getProxyForFunction<GenericProxy, Delegate>(invoked))
+                return proxy;
+            else if (throwOnMismatch)
+                throw BadDelegateArguments(target.signature(), invoked.signature());
 
-            using InvokedSignature = decltype(target.getInvokedSignatureType(invoked));
-            using FunctionProxy    = traits::delegate_proxy_t<InvokedSignature, Delegate>;
-
-            constexpr FunctionProxy proxy = GenericProxy();
-
-            constexpr auto test = IMetaFunction::fromFunctionType<FunctionProxy>();
-            std::cout << std::format("Target => [{}].", target.signature().representation()) << std::endl;
-            std::cout << std::format("FunctionProxy => [{}].", test.signature().representation()) << std::endl;
-
-            return reinterpret_cast<AnyTarget>(proxy);
+            return reinterpret_cast<AnyTarget>(nullptr);
         }
 
         template<class F, class... Args>
         static constexpr auto invoke(F&& target, Args&&... args) -> Ret
         {
-            static_assert(
-                std::is_invocable_v<F, Args...>,
-                "[Delegate] You are trying to invoke a function with non compatible arguments."
-            );
-
-            if constexpr (std::is_void_v<Ret>)
+            if constexpr (!std::is_invocable_v<F, Args...>)
+            {
+                static_assert(
+                    std::is_invocable_v<F, Args...>,
+                    "[Delegate] You are trying to invoke a function with non compatible arguments."
+                );
+            }
+            else if constexpr (std::is_void_v<Ret>)
                 std::invoke(DELEGATE_FWD(target), DELEGATE_FWD(args)...);
             else
                 return std::invoke(DELEGATE_FWD(target), DELEGATE_FWD(args)...);
