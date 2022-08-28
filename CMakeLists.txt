@@ -15,7 +15,7 @@ endif()
 
 if(${BUILD_SUBDIRECTORIES})
 	# TODO: Add tests and remove benchmarks as they can't be compiled with github actions
-	# add_subdirectory(benchmarks) 
+	add_subdirectory(benchmarks) 
 endif()
 
 add_library(${APP} INTERFACE ${PROJECT_SOURCE_DIR}/include/Delegate/Delegate.hpp)

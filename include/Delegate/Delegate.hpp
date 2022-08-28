@@ -55,6 +55,7 @@
 #include <format>
 #include <memory>
 #include <cassert>
+#include <source_location>
 
 // +--------------------------------------------------------------------------+
 // | All of the code below is a mix of different inspirations such as:        |
@@ -209,7 +210,7 @@ namespace boost
 
             template<> struct mp_with_index_impl_<1>
             {
-                template<std::size_t N, std::size_t K, class F, std::unsigned_integral... InputIndices, class... OutputIndices>
+                template<std::size_t N, std::size_t K, class F, class... InputIndices, class... OutputIndices>
                 static BOOST_MP11_CONSTEXPR14 auto call(F&& f, std::size_t, std::tuple<InputIndices...> inIndices, OutputIndices... outIndices)
                 {
                     return detail::template call<N, K>(std::forward<F>(f), DELEGATE_FWD(inIndices), DELEGATE_FWD(outIndices)..., mp_size_t<K + 0>());
@@ -705,14 +706,14 @@ namespace axl
         class FixedString
         {
         public:
-            constexpr FixedString() noexcept = default;
+            consteval FixedString() noexcept = default;
             
-            constexpr FixedString(std::string_view str) noexcept
+            consteval FixedString(std::string_view str) noexcept
             {
                 std::copy_n(str.begin(), str.size(), _buffer.begin());
             }
 
-            constexpr FixedString(const char (&str)[Size + 1]) noexcept
+            consteval FixedString(const char (&str)[Size + 1]) noexcept
             {
                 std::copy(std::begin(str), std::end(str), _buffer.begin());
             }
@@ -720,27 +721,28 @@ namespace axl
             /* ------------------------------------------------------------- */
             /* Conversions
             /* ------------------------------------------------------------- */
-            constexpr operator std::string_view() const noexcept { return { _buffer, Size }; }
+            consteval operator std::string_view() const noexcept { return *this; }
 
             /* ------------------------------------------------------------- */
             /* Properties
             /* ------------------------------------------------------------- */
 
-            [[nodiscard]] constexpr bool empty()  const noexcept { return Size == 0; }
-            [[nodiscard]] constexpr auto size()   const noexcept { return Size;      }
-            [[nodiscard]] constexpr auto lentgh() const noexcept { return Size;      }
+            [[nodiscard]] consteval bool empty()  const noexcept { return Size == 0;      }
+            [[nodiscard]] consteval auto size()   const noexcept { return Size;           }
+            [[nodiscard]] consteval auto length() const noexcept { return Size;           }
+            [[nodiscard]] consteval auto data()   const noexcept { return _buffer.data(); }
 
             /* ------------------------------------------------------------- */
             /* String matching
             /* ------------------------------------------------------------- */
 
-            [[nodiscard]] constexpr bool endsWith(std::string_view suffix) const noexcept { return sv().ends_with(suffix); }
-            [[nodiscard]] constexpr bool endsWith(const char* suffix)      const noexcept { return sv().ends_with(suffix); }
-            [[nodiscard]] constexpr bool endsWith(const char suffix)       const noexcept { return sv().ends_with(suffix); }
+            [[nodiscard]] consteval bool endsWith(std::string_view suffix) const noexcept { return sv().ends_with(suffix); }
+            [[nodiscard]] consteval bool endsWith(const char* suffix)      const noexcept { return sv().ends_with(suffix); }
+            [[nodiscard]] consteval bool endsWith(const char suffix)       const noexcept { return sv().ends_with(suffix); }
 
-            [[nodiscard]] constexpr bool startsWith(std::string_view prefix) const noexcept { return sv().starts_with(prefix); }
-            [[nodiscard]] constexpr bool startsWith(const char* prefix)      const noexcept { return sv().starts_with(prefix); }
-            [[nodiscard]] constexpr bool startsWith(const char prefix)       const noexcept { return sv().starts_with(prefix); }
+            [[nodiscard]] consteval bool startsWith(std::string_view prefix) const noexcept { return sv().starts_with(prefix); }
+            [[nodiscard]] consteval bool startsWith(const char* prefix)      const noexcept { return sv().starts_with(prefix); }
+            [[nodiscard]] consteval bool startsWith(const char prefix)       const noexcept { return sv().starts_with(prefix); }
 
             //template<std::size_t Len>
             //[[nodiscard]] constexpr auto find(const same_with_other_size<Len>& str, size_type pos = 0) const noexcept
@@ -761,7 +763,7 @@ namespace axl
             /* Internal helpers
             /* ------------------------------------------------------------- */
 
-            constexpr std::string_view sv() const noexcept { return *this; }
+            consteval std::string_view sv() const noexcept { return { _buffer.data(), Size + 1 }; }
 
         private:
             std::array<char, Size + 1> _buffer {};
@@ -1361,11 +1363,11 @@ namespace axl
         class FunctionSignature
         {
         public:
-            consteval FunctionSignature(std::string_view representation) noexcept
+            constexpr FunctionSignature(std::string_view representation) noexcept
                 : _representation { representation }
             {}
 
-            consteval auto numberOfArguments() const noexcept -> std::size_t
+            constexpr auto numberOfArguments() const noexcept -> std::size_t
             {
                 std::size_t separators = 0;
         
@@ -1400,7 +1402,7 @@ namespace axl
             }
 
             template<std::size_t index>
-            consteval auto nthArgument() const noexcept -> FunctionArgument
+            constexpr auto nthArgument() const noexcept -> FunctionArgument
             {
                 std::size_t offset = _representation.find_last_of('(');
 
@@ -1421,7 +1423,7 @@ namespace axl
                 return {};
             }
 
-            consteval auto _nthArgument(std::size_t index) const noexcept -> std::string_view
+            constexpr auto _nthArgument(std::size_t index) const noexcept -> std::string_view
             {
                 std::size_t offset = _representation.find_last_of('(');
 
@@ -1460,6 +1462,7 @@ namespace axl
         {
             constexpr virtual ~IMetaFunction() noexcept = default;
 
+            constexpr virtual auto reflection() const noexcept -> detail::FixedString<1024> = 0;
             constexpr virtual auto signature() const noexcept -> FunctionSignature = 0;
             constexpr virtual auto decayedSignature() const noexcept -> FunctionSignature = 0;
             constexpr virtual auto nthArgument(std::size_t) const noexcept -> FunctionArgument = 0;
@@ -1539,6 +1542,15 @@ namespace axl
                 RValueVolatile,
             };
 
+        class ReflectedMetaFunction // : public IMetaFunction
+        {
+        public:
+            constexpr ReflectedMetaFunction(detail::FixedString<1024> s) : _s { s } {}
+
+        private:
+            detail::FixedString<1024> _s;
+        };
+
         template<class R, class... Args>
         class MetaFunction : public IMetaFunction
         {
@@ -1551,6 +1563,13 @@ namespace axl
             constexpr auto numberOfArguments() const noexcept -> std::size_t override
             {
                 return sizeof...(Args);
+            }
+
+            constexpr auto reflection() const noexcept -> detail::FixedString<1024> override
+            {
+                constexpr detail::FixedString<1024> reflection(detail::typeName<R(*)(Args...)>());
+
+                return reflection;
             }
 
             constexpr auto signature() const noexcept -> FunctionSignature override
@@ -1569,17 +1588,38 @@ namespace axl
             
             constexpr auto nthArgument(std::size_t index) const noexcept -> FunctionArgument override
             {
-                return signature().nthArgument(index);
+                constexpr auto getNthArg = []<std::size_t I>() constexpr {
+                    if constexpr (I < sizeof...(Args))
+                    {
+                        constexpr auto arg = FunctionArgument::fromConcreteArg<NthTypeOf<I>>();
+
+                        return arg;
+                    }
+                    else return FunctionArgument();
+                };
+
+                switch (index)
+                {
+                case 0: return getNthArg.template operator()<0>();
+                case 1: return getNthArg.template operator()<1>();
+                case 2: return getNthArg.template operator()<2>();
+                case 3: return getNthArg.template operator()<3>();
+                case 4: return getNthArg.template operator()<4>();
+                case 5: return getNthArg.template operator()<5>();
+                default: return FunctionArgument();
+                }
             }
 
             constexpr bool isCompatibleWith(const IMetaFunction& rhs) const noexcept override
             {
-                if (numberOfArguments() != rhs.numberOfArguments())
+                constexpr FunctionSignature self = detail::typeName<R(*)(Args...)>();
+
+                constexpr auto numberOfArguments = sizeof...(Args);
+
+                if (numberOfArguments != rhs.numberOfArguments())
                     return false;
 
-                constexpr FunctionSignature ownSignature = axl::detail::typeName<R(*)(Args...)>();
-
-                if (ownSignature == rhs.signature())
+                if (self == rhs.signature())
                     return true;
 
                 constexpr auto Indices = std::make_index_sequence<sizeof...(Args)>();
@@ -1596,6 +1636,8 @@ namespace axl
             template<class OriginalArg>
             static constexpr bool isArgumentCompatibleWith(FunctionArgument invoked) noexcept
             {
+                constexpr auto test = detail::typeName<void(*)(OriginalArg)>();
+
                 if constexpr (std::is_lvalue_reference_v<OriginalArg>)
                 {
                     if constexpr (std::is_const_v<std::remove_reference_t<OriginalArg>>)
@@ -1647,6 +1689,7 @@ namespace axl
             template<class Arg/*, class InvokedArg*/>
             static constexpr auto getInvokedParameterType(FunctionArgument invokedArg) noexcept -> InvokedParameterType
             {
+                return InvokedParameterType::Const;
 
                 if constexpr (std::is_lvalue_reference_v<Arg>)
                 {
@@ -1791,6 +1834,13 @@ namespace axl
                 constexpr auto N = std::variant_size_v<InvokedParameter<int>>;
 
                 static_assert(sizeof...(Types) == sizeof...(Args));
+
+                //using FunctionProxy = traits::delegate_proxy_t<R(*)(Args...), Delegate>;
+
+                //constexpr FunctionProxy proxy = Proxy();
+
+                //return reinterpret_cast<void(*)()>(proxy);
+                
 
                 constexpr auto makeProxyFunction = []<class... Constants>(Constants&&...) constexpr {
                     using FunctionProxy = traits::delegate_proxy_t<R(*)(Type<Args, Constants::value>...), Delegate>;
@@ -2306,11 +2356,6 @@ namespace axl
         }
 
     private:
-        using Signature = detail::FixedString<512U>;
-
-        template<detail::FixedString S>
-        struct Meta {};
-
         [[noreturn]]
         static constexpr auto throwBadCall(const IMetaFunction&, const bool) -> AnyTarget
         {
@@ -2427,23 +2472,38 @@ namespace axl
         {
             constexpr auto target = IMetaFunction::fromFunctionType<Target>();
 
+            //using FunctionProxy = traits::delegate_proxy_t<Target, Delegate>;
+
+            //constexpr FunctionProxy proxy = GenericProxy();
+
+            if (std::is_constant_evaluated())
+                return reinterpret_cast<AnyTarget>(nullptr);
+
+
             if (const auto proxy = target.getProxyForFunction<GenericProxy, Delegate>(invoked))
-                return proxy;
+                 return proxy;
             else if (throwOnMismatch)
                 throw BadDelegateArguments(target.signature(), invoked.signature());
 
             return reinterpret_cast<AnyTarget>(nullptr);
+            // return reinterpret_cast<AnyTarget>(proxy);
         }
 
         template<class F, class... Args>
         static constexpr auto invoke(F&& target, Args&&... args) -> Ret
         {
-            if constexpr (!std::is_invocable_v<F, Args...>)
+            if constexpr (!std::is_invocable_v<F, Args&&...>)
             {
-                static_assert(
-                    std::is_invocable_v<F, Args...>,
-                    "[Delegate] You are trying to invoke a function with non compatible arguments."
-                );
+                return;
+                //constexpr auto target  = IMetaFunction::fromFunctionType<F>();
+                //constexpr auto invoked = IMetaFunction::fromFunctionType<Ret(*)(Args...)>();
+
+                //throw BadDelegateArguments(target.signature(), invoked.signature());
+
+                //static_assert(
+                //    std::is_invocable_v<F, Args...>,
+                //    "[Delegate] You are trying to invoke a function with non compatible arguments."
+                //);
             }
             else if constexpr (std::is_void_v<Ret>)
                 std::invoke(DELEGATE_FWD(target), DELEGATE_FWD(args)...);

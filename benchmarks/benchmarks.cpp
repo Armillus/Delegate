@@ -25,13 +25,14 @@
 // Project includes
 #include <Delegate/Delegate.hpp>
 
+
 static void BM_Delegate_CreationAndExecutionTime(benchmark::State& state)
 {
     int b = 0;
 
     for (auto _ : state)
     {
-        axl::Delegate d { +[](int a, int b) { return a + b; } };
+        axl::Delegate d = [](int a, int b) { return a * b / 2 % 3; };
 
         d(3, b++);
     }
@@ -39,13 +40,27 @@ static void BM_Delegate_CreationAndExecutionTime(benchmark::State& state)
 
 BENCHMARK(BM_Delegate_CreationAndExecutionTime);
 
-static void BM_StdFunction_CreationAndExecutionTime(benchmark::State& state)
+static void BM_UntypedDelegate_CreationAndExecutionTime(benchmark::State& state)
 {
-    std::function<int (int, int)> f = [](int a, int b) { return a + b; };
-
     int b = 0;
+
     for (auto _ : state)
     {
+        axl::Delegate<int (...)> d = [](int a, int b) {  return a * b / 2 % 3; };
+
+        d(3, b++);
+    }
+}
+
+BENCHMARK(BM_UntypedDelegate_CreationAndExecutionTime);
+
+static void BM_StdFunction_CreationAndExecutionTime(benchmark::State& state)
+{
+    int b = 0;
+ 
+    for (auto _ : state)
+    {
+        std::function<int (int, int)> f = [](int a, int b) { return a * b / 2 % 3; };
 
         f(3, b++);
     }
@@ -53,9 +68,10 @@ static void BM_StdFunction_CreationAndExecutionTime(benchmark::State& state)
 
 BENCHMARK(BM_StdFunction_CreationAndExecutionTime);
 
+
 static void BM_Delegate_ExecutionTime(benchmark::State& state)
 {
-    axl::Delegate d { +[](int a, int b) { return a + b; } };
+    axl::Delegate d = [](int a, int b) { return a * b / 2 % 3; };
 
     int b = 0;
     for (auto _ : state)
@@ -66,9 +82,22 @@ static void BM_Delegate_ExecutionTime(benchmark::State& state)
 
 BENCHMARK(BM_Delegate_ExecutionTime);
 
+static void BM_UntypedDelegate_ExecutionTime(benchmark::State& state)
+{
+    axl::Delegate<int (...)> d = [](int a, int b) { return a * b / 2 % 3; };
+
+    int b = 0;
+    for (auto _ : state)
+    {
+        d(3, b++);
+    }
+}
+
+BENCHMARK(BM_UntypedDelegate_ExecutionTime);
+
 static void BM_StdFunction_ExecutionTime(benchmark::State& state)
 {
-    std::function<int (int, int)> f = [](int a, int b) { return a + b; };
+    std::function<int (int, int)> f = [](int a, int b) { return a * b / 2 % 3; };
 
     int b = 0;
     for (auto _ : state)
