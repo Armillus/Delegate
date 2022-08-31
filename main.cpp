@@ -107,6 +107,8 @@ int main() try
     //static_assert(std::is_invocable_r_v<int, int(*)(volatile int&&), const int&&>);
     //static_assert(std::is_invocable_r_v<int, int(*)(volatile int&&), volatile int&&>);
 
+    static_assert(std::is_invocable_v<void(*)(int&, bool, int), int&, const bool, int>);
+
     static_assert(axl::traits::is_function_pointer_v<decltype(&std::strlen)>);
 
     constexpr axl::Delegate del { axl::bind<&std::strlen>() };

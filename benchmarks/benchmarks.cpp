@@ -68,6 +68,20 @@ static void BM_StdFunction_CreationAndExecutionTime(benchmark::State& state)
 
 BENCHMARK(BM_StdFunction_CreationAndExecutionTime);
 
+static void BM_FunctionPointer_CreationAndExecutionTime(benchmark::State& state)
+{
+    int b = 0;
+
+    for (auto _ : state)
+    {
+        int (*f)(int, int) = +[](int a, int b) { return a * b / 2 % 3; };
+
+        f(3, b++);
+    }
+}
+
+BENCHMARK(BM_FunctionPointer_CreationAndExecutionTime);
+
 
 static void BM_Delegate_ExecutionTime(benchmark::State& state)
 {
@@ -108,6 +122,20 @@ static void BM_StdFunction_ExecutionTime(benchmark::State& state)
 }
 
 BENCHMARK(BM_StdFunction_ExecutionTime);
+
+static void BM_FunctionPointer_ExecutionTime(benchmark::State& state)
+{
+    int (*f)(int, int) = +[](int a, int b) { return a * b / 2 % 3; };
+
+    int b = 0;
+    for (auto _ : state)
+    {
+
+        f(3, b++);
+    }
+}
+
+BENCHMARK(BM_FunctionPointer_ExecutionTime);
 
 
 BENCHMARK_MAIN();
