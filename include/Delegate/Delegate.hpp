@@ -150,6 +150,16 @@ static_assert(
 #endif
 
 
+
+#if defined(__clang__) || defined(__GNUC__)
+# define DELEGATE_INLINE __attribute__((visibility("hidden"), always_inline))
+#elif defined(_MSC_VER)
+# define DELEGATE_INLINE __forceinline
+#else
+# define DELEGATE_INLINE
+#endif
+
+
 #define BOOST_MP11_CONSTEXPR14 constexpr
 
 #if defined( __GNUC__ ) || defined( __clang__ )
@@ -173,7 +183,7 @@ namespace boost
             template<std::size_t N> struct mp_with_index_impl_
             {
                 template<std::size_t Size, std::size_t K, class F, class... InputIndices>
-                static BOOST_MP11_CONSTEXPR14 auto call(F&& f, std::size_t i, InputIndices&&... indices)
+                static BOOST_MP11_CONSTEXPR14 DELEGATE_INLINE auto call(F&& f, std::size_t i, InputIndices&&... indices)
                 // template<std::size_t K, class F> static BOOST_MP11_CONSTEXPR14 auto call(std::size_t i, F&& f)
                 {
                     if (i < N / 2)
@@ -188,7 +198,7 @@ namespace boost
             };
 
             template<std::size_t N, std::size_t K, class F, class... Indices>
-            inline BOOST_MP11_CONSTEXPR14 auto call(F&& f, Indices&&... indices)
+            inline BOOST_MP11_CONSTEXPR14 DELEGATE_INLINE auto call(F&& f, Indices&&... indices)
             {
                 constexpr bool isComputationDone = std::conjunction_v<std::negation<std::is_integral<Indices>>...>;
 
@@ -197,7 +207,7 @@ namespace boost
                 else
                 {
                     return []<class T, class... Ts>(F&& f, T&& i, Ts&&... rest) {
-                        assert(i < N);
+                        // assert(i < N);
 
                         return detail::mp_with_index_impl_<N>::template call<N, K>(std::forward<F>(f), i, DELEGATE_FWD(rest)...);
                     }(std::forward<F>(f), std::forward<Indices>(indices)...);
@@ -211,7 +221,7 @@ namespace boost
             template<> struct mp_with_index_impl_<1>
             {
                 template<std::size_t N, std::size_t K, class F, class... InputIndices>
-                static BOOST_MP11_CONSTEXPR14 auto call(F&& f, std::size_t, InputIndices&&... indices)
+                static BOOST_MP11_CONSTEXPR14 DELEGATE_INLINE auto call(F&& f, std::size_t, InputIndices&&... indices)
                 {
                     return detail::template call<N, K>(std::forward<F>(f), DELEGATE_FWD(indices)..., mp_size_t<K + 0>());
                     // return std::forward<F>(f)(mp_size_t<K + 0>());
@@ -221,7 +231,7 @@ namespace boost
             template<> struct mp_with_index_impl_<2>
             {
                 template<std::size_t N, std::size_t K, class F, class... InputIndices>
-                static BOOST_MP11_CONSTEXPR14 auto call(F&& f, std::size_t i, InputIndices&&... indices)
+                static BOOST_MP11_CONSTEXPR14 DELEGATE_INLINE auto call(F&& f, std::size_t i, InputIndices&&... indices)
                 {
                     switch (i)
                     {
@@ -237,7 +247,7 @@ namespace boost
             template<> struct mp_with_index_impl_<3>
             {
                 template<std::size_t N, std::size_t K, class F, class... InputIndices>
-                static BOOST_MP11_CONSTEXPR14 auto call(F&& f, std::size_t i, InputIndices&&... indices)
+                static BOOST_MP11_CONSTEXPR14 DELEGATE_INLINE auto call(F&& f, std::size_t i, InputIndices&&... indices)
                 {
                     switch (i)
                     {
@@ -255,7 +265,7 @@ namespace boost
             template<> struct mp_with_index_impl_<4>
             {
                 template<std::size_t N, std::size_t K, class F, class... InputIndices>
-                static BOOST_MP11_CONSTEXPR14 auto call(F&& f, std::size_t i, InputIndices&&... indices)
+                static BOOST_MP11_CONSTEXPR14 DELEGATE_INLINE auto call(F&& f, std::size_t i, InputIndices&&... indices)
                 {
                     switch (i)
                     {
@@ -275,7 +285,7 @@ namespace boost
             template<> struct mp_with_index_impl_<5>
             {
                 template<std::size_t N, std::size_t K, class F, class... InputIndices>
-                static BOOST_MP11_CONSTEXPR14 auto call(F&& f, std::size_t i, InputIndices&&... indices)
+                static BOOST_MP11_CONSTEXPR14 DELEGATE_INLINE auto call(F&& f, std::size_t i, InputIndices&&... indices)
                 {
                     switch (i)
                     {
@@ -297,7 +307,7 @@ namespace boost
             template<> struct mp_with_index_impl_<6>
             {
                 template<std::size_t N, std::size_t K, class F, class... InputIndices>
-                static BOOST_MP11_CONSTEXPR14 auto call(F&& f, std::size_t i, InputIndices&&... indices)
+                static BOOST_MP11_CONSTEXPR14 DELEGATE_INLINE auto call(F&& f, std::size_t i, InputIndices&&... indices)
                 {
                     switch (i)
                     {
@@ -321,7 +331,7 @@ namespace boost
             template<> struct mp_with_index_impl_<7>
             {
                 template<std::size_t N, std::size_t K, class F, class... InputIndices>
-                static BOOST_MP11_CONSTEXPR14 auto call(F&& f, std::size_t i, InputIndices&&... indices)
+                static BOOST_MP11_CONSTEXPR14 DELEGATE_INLINE auto call(F&& f, std::size_t i, InputIndices&&... indices)
                 {
                     switch (i)
                     {
@@ -347,7 +357,7 @@ namespace boost
             template<> struct mp_with_index_impl_<8>
             {
                 template<std::size_t N, std::size_t K, class F, class... InputIndices>
-                static BOOST_MP11_CONSTEXPR14 auto call(F&& f, std::size_t i, InputIndices&&... indices)
+                static BOOST_MP11_CONSTEXPR14 DELEGATE_INLINE auto call(F&& f, std::size_t i, InputIndices&&... indices)
                 {
                     switch (i)
                     {
@@ -375,7 +385,7 @@ namespace boost
             template<> struct mp_with_index_impl_<9>
             {
                 template<std::size_t N, std::size_t K, class F, class... InputIndices>
-                static BOOST_MP11_CONSTEXPR14 auto call(F&& f, std::size_t i, InputIndices&&... indices)
+                static BOOST_MP11_CONSTEXPR14 DELEGATE_INLINE auto call(F&& f, std::size_t i, InputIndices&&... indices)
                 {
                     switch (i)
                     {
@@ -405,7 +415,7 @@ namespace boost
             template<> struct mp_with_index_impl_<10>
             {
                 template<std::size_t N, std::size_t K, class F, class... InputIndices>
-                static BOOST_MP11_CONSTEXPR14 auto call(F&& f, std::size_t i, InputIndices&&... indices)
+                static BOOST_MP11_CONSTEXPR14 DELEGATE_INLINE auto call(F&& f, std::size_t i, InputIndices&&... indices)
                 {
                     switch (i)
                     {
@@ -437,7 +447,7 @@ namespace boost
             template<> struct mp_with_index_impl_<11>
             {
                 template<std::size_t N, std::size_t K, class F, class... InputIndices>
-                static BOOST_MP11_CONSTEXPR14 auto call(F&& f, std::size_t i, InputIndices&&... indices)
+                static BOOST_MP11_CONSTEXPR14 DELEGATE_INLINE auto call(F&& f, std::size_t i, InputIndices&&... indices)
                 {
                     switch (i)
                     {
@@ -471,7 +481,7 @@ namespace boost
             template<> struct mp_with_index_impl_<12>
             {
                 template<std::size_t N, std::size_t K, class F, class... InputIndices>
-                static BOOST_MP11_CONSTEXPR14 auto call(F&& f, std::size_t i, InputIndices&&... indices)
+                static BOOST_MP11_CONSTEXPR14 DELEGATE_INLINE auto call(F&& f, std::size_t i, InputIndices&&... indices)
                 {
                     switch (i)
                     {
@@ -507,7 +517,7 @@ namespace boost
             template<> struct mp_with_index_impl_<13>
             {
                 template<std::size_t N, std::size_t K, class F, class... InputIndices>
-                static BOOST_MP11_CONSTEXPR14 auto call(F&& f, std::size_t i, InputIndices&&... indices)
+                static BOOST_MP11_CONSTEXPR14 DELEGATE_INLINE auto call(F&& f, std::size_t i, InputIndices&&... indices)
                 {
                     switch (i)
                     {
@@ -545,7 +555,7 @@ namespace boost
             template<> struct mp_with_index_impl_<14>
             {
                 template<std::size_t N, std::size_t K, class F, class... InputIndices>
-                static BOOST_MP11_CONSTEXPR14 auto call(F&& f, std::size_t i, InputIndices&&... indices)
+                static BOOST_MP11_CONSTEXPR14 DELEGATE_INLINE auto call(F&& f, std::size_t i, InputIndices&&... indices)
                 {
                     switch (i)
                     {
@@ -585,7 +595,7 @@ namespace boost
             template<> struct mp_with_index_impl_<15>
             {
                 template<std::size_t N, std::size_t K, class F, class... InputIndices>
-                static BOOST_MP11_CONSTEXPR14 auto call(F&& f, std::size_t i, InputIndices&&... indices)
+                static BOOST_MP11_CONSTEXPR14 DELEGATE_INLINE auto call(F&& f, std::size_t i, InputIndices&&... indices)
                 {
                     switch (i)
                     {
@@ -627,7 +637,7 @@ namespace boost
             template<> struct mp_with_index_impl_<16>
             {
                 template<std::size_t N, std::size_t K, class F, class... InputIndices>
-                static BOOST_MP11_CONSTEXPR14 auto call(F&& f, std::size_t i, InputIndices&&... indices)
+                static BOOST_MP11_CONSTEXPR14 DELEGATE_INLINE auto call(F&& f, std::size_t i, InputIndices&&... indices)
                 {
                     switch (i)
                     {
@@ -670,7 +680,7 @@ namespace boost
         } // namespace detail
 
         template<std::size_t N, class F, class... Indices>
-        inline BOOST_MP11_CONSTEXPR14 auto mp_with_index(F&& f, Indices&&... indices)
+        inline BOOST_MP11_CONSTEXPR14 DELEGATE_INLINE auto mp_with_index(F&& f, Indices&&... indices)
         {
             if constexpr (sizeof...(Indices) == 0u)
                 return std::forward<F>(f)();
@@ -783,14 +793,14 @@ namespace axl
 
         template<std::size_t N>
         [[nodiscard]]
-        constexpr std::uint32_t hash(std::uint32_t prime, const char (&s)[N], std::size_t len = N - 1) noexcept
+        constexpr DELEGATE_INLINE std::uint32_t hash(std::uint32_t prime, const char (&s)[N], std::size_t len = N - 1) noexcept
         {
             // Simple recursive Horner hash (may fail on Clang if 's' is too long)
             return (len <= 1) ? s[0] : (prime * hash(prime, s, len - 1) + s[len - 1]);
         }
 
         [[nodiscard]]
-        constexpr std::uint32_t hash(std::uint32_t prime, const char* s, std::size_t len) noexcept
+        constexpr DELEGATE_INLINE std::uint32_t hash(std::uint32_t prime, const char* s, std::size_t len) noexcept
         {
             std::uint32_t hash = 0;
             
@@ -802,13 +812,13 @@ namespace axl
         }
 
         [[nodiscard]]
-        constexpr std::uint32_t hash(std::uint32_t prime, const std::string_view s) noexcept
+        constexpr DELEGATE_INLINE std::uint32_t hash(std::uint32_t prime, const std::string_view s) noexcept
         {
             return hash(prime, s.data(), s.size());
         }
 
         [[nodiscard]]
-        constexpr std::uint32_t hash(const std::string_view s) noexcept
+        constexpr DELEGATE_INLINE std::uint32_t hash(const std::string_view s) noexcept
         {
             constexpr std::size_t defaultPrimeNumber = 31;
 
@@ -848,7 +858,7 @@ namespace axl
         }
 
         template<class T>
-        constexpr auto typeName() noexcept -> std::string_view
+        constexpr DELEGATE_INLINE auto typeName() noexcept -> std::string_view
         {
             // Inspired from nameof, check it out here:
             // https://github.com/Neargye/nameof
@@ -859,7 +869,7 @@ namespace axl
         }
 
         template<class R, class... Args>
-        constexpr auto hashSignature() noexcept -> std::uint32_t
+        constexpr DELEGATE_INLINE auto hashSignature() noexcept -> std::uint32_t
         {
             using F = R(*)(Args...);
             constexpr auto hashedSignature = hash(typeName<F>());
@@ -867,6 +877,50 @@ namespace axl
             return hashedSignature;
         }
     } // !namespace detail
+
+    template<class T>
+    struct ReflectedArg
+    {
+        template<class U>
+        requires std::is_same_v<std::decay_t<T>, std::decay_t<U>>
+        constexpr DELEGATE_INLINE ReflectedArg(U&& parameter) noexcept
+            : arg { parameter }
+        {
+            if constexpr (std::is_const_v<U>)
+                isConst = true;
+
+            //if constexpr (std::is_volatile_v<U>)
+            //    isVolatile = true;
+        }
+
+        template<class U>
+        requires std::is_same_v<std::decay_t<T>, std::decay_t<U>>
+        constexpr DELEGATE_INLINE auto forward() const noexcept -> U
+        {
+            if constexpr (!std::is_const_v<U>)
+            {
+                if (isConst) throw std::exception();
+                
+            }
+            //if constexpr (!std::is_volatile_v<U>)
+            //{
+            //    if (isVolatile) throw std::exception();
+            //}
+
+            else if constexpr (std::is_lvalue_reference_v<U>)
+            {
+                return const_cast<U>(arg);
+            }
+            else
+            {
+                return std::move(arg);
+            }
+        }
+
+        const /*volatile*/ T& arg;
+        bool isConst = false;
+        // bool isVolatile = false;
+    };
 
     namespace traits
     {
@@ -946,35 +1000,44 @@ namespace axl
         {
             static constexpr auto hash = detail::hashSignature<R, std::add_rvalue_reference<Args>...>();
 
+            using decayed_args = std::tuple<std::decay_t<Args>...>;
+
+            using args    = std::tuple<Args...>;
             using type    = R(Args...);
             using pointer = R(*)(Args...);
 
             template<class Delegate>
-            using proxy = R(*)(const Delegate*, Args&&...);
+            using proxy = R(*)(const Delegate*, ReflectedArg<std::decay_t<Args>>&&...);
         };
 
         template<class R, class... Args>
         struct function_type_impl<R(*)(Args..., ...)>
         {
             static constexpr auto hash = detail::hashSignature<R, std::add_rvalue_reference<Args>...>();
+            
+            using decayed_args = std::tuple<std::decay_t<Args>...>;
 
+            using args    = std::tuple<Args...>;
             using type    = R(Args..., ...);
             using pointer = R(*)(Args..., ...);
                 
             template<class Delegate>
-            using proxy = R(*)(const Delegate*, Args&&..., ...);
+            using proxy = R(*)(const Delegate*, ReflectedArg<std::decay_t<Args>>&&..., ...);
         };
 
         template<class R, class... Args>
         struct function_type_impl<R(*)(Args...) noexcept>
         {
             static constexpr auto hash = detail::hashSignature<R, std::add_rvalue_reference<Args>...>();
+            
+            using decayed_args = std::tuple<std::decay_t<Args>...>;
 
+            using args    = std::tuple<Args...>;
             using type    = R(Args...);
             using pointer = R(*)(Args...);
                 
             template<class Delegate>
-            using proxy = R(*)(const Delegate*, Args&&...);
+            using proxy = R(*)(const Delegate*, ReflectedArg<std::decay_t<Args>>&&...);
         };
 
         template<class R, class... Args>
@@ -982,11 +1045,14 @@ namespace axl
         {
             static constexpr auto hash = detail::hashSignature<R, std::add_rvalue_reference<Args>...>();
 
+            using decayed_args = std::tuple<std::decay_t<Args>...>;
+
+            using args    = std::tuple<Args...>;
             using type    = R(Args..., ...);
             using pointer = R(*)(Args..., ...);
                 
             template<class Delegate>
-            using proxy = R(*)(const Delegate*, Args&&..., ...);
+            using proxy = R(*)(const Delegate*, ReflectedArg<std::decay_t<Args>>&&..., ...);
         };
 
         /* ------------------------------------------------------------- */
@@ -998,11 +1064,14 @@ namespace axl
         {
             static constexpr auto hash = detail::hashSignature<R, std::add_rvalue_reference<Args>...>();
 
+            using decayed_args = std::tuple<std::decay_t<Args>...>;
+
+            using args    = std::tuple<Args...>;
             using type    = R(Args...);
             using pointer = R(*)(Args...);
                 
             template<class Delegate>
-            using proxy = R(*)(const Delegate*, Args&&...);
+            using proxy = R(*)(const Delegate*, ReflectedArg<std::decay_t<Args>>&&...);
         };
 
         template<class R, class C, class... Args>
@@ -1010,11 +1079,14 @@ namespace axl
         {
             static constexpr auto hash = detail::hashSignature<R, std::add_rvalue_reference<Args>...>();
 
+            using decayed_args = std::tuple<std::decay_t<Args>...>;
+
+            using args    = std::tuple<Args...>;
             using type    = R(Args..., ...);
             using pointer = R(*)(Args..., ...);
                 
             template<class Delegate>
-            using proxy = R(*)(const Delegate*, Args&&..., ...);
+            using proxy = R(*)(const Delegate*, ReflectedArg<std::decay_t<Args>>&&..., ...);
         };
 
         template<class R, class C, class... Args>
@@ -1022,11 +1094,14 @@ namespace axl
         {
             static constexpr auto hash = detail::hashSignature<R, std::add_rvalue_reference<Args>...>();
 
+            using decayed_args = std::tuple<std::decay_t<Args>...>;
+
+            using args    = std::tuple<Args...>;
             using type    = R(Args...);
             using pointer = R(*)(Args...);
                 
             template<class Delegate>
-            using proxy = R(*)(const Delegate*, Args&&...);
+            using proxy = R(*)(const Delegate*, ReflectedArg<std::decay_t<Args>>&&...);
         };
 
         template<class R, class C, class... Args>
@@ -1034,11 +1109,14 @@ namespace axl
         {
             static constexpr auto hash = detail::hashSignature<R, std::add_rvalue_reference<Args>...>();
 
+            using decayed_args = std::tuple<std::decay_t<Args>...>;
+
+            using args    = std::tuple<Args...>;
             using type    = R(Args..., ...);
             using pointer = R(*)(Args..., ...);
                 
             template<class Delegate>
-            using proxy = R(*)(const Delegate*, Args&&..., ...);
+            using proxy = R(*)(const Delegate*, ReflectedArg<std::decay_t<Args>>&&..., ...);
         };
 
         /* ------------------------------------------------------------- */
@@ -1050,11 +1128,14 @@ namespace axl
         {
             static constexpr auto hash = detail::hashSignature<R, std::add_rvalue_reference<Args>...>();
 
+            using decayed_args = std::tuple<std::decay_t<Args>...>;
+
+            using args    = std::tuple<Args...>;
             using type    = R(Args...);
             using pointer = R(*)(Args...);
                 
             template<class Delegate>
-            using proxy = R(*)(const Delegate*, Args&&...);
+            using proxy = R(*)(const Delegate*, ReflectedArg<std::decay_t<Args>>&&...);
         };
 
         template<class R, class C, class... Args>
@@ -1062,11 +1143,14 @@ namespace axl
         {
             static constexpr auto hash = detail::hashSignature<R, std::add_rvalue_reference<Args>...>();
 
+            using decayed_args = std::tuple<std::decay_t<Args>...>;
+
+            using args    = std::tuple<Args...>;
             using type    = R(Args..., ...);
             using pointer = R(*)(Args..., ...);
                 
             template<class Delegate>
-            using proxy = R(*)(const Delegate*, Args&&..., ...);
+            using proxy = R(*)(const Delegate*, ReflectedArg<std::decay_t<Args>>&&..., ...);
         };
 
         template<class R, class C, class... Args>
@@ -1074,11 +1158,14 @@ namespace axl
         {
             static constexpr auto hash = detail::hashSignature<R, std::add_rvalue_reference<Args>...>();
 
+            using decayed_args = std::tuple<std::decay_t<Args>...>;
+
+            using args    = std::tuple<Args...>;
             using type    = R(Args...);
             using pointer = R(*)(Args...);
                 
             template<class Delegate>
-            using proxy = R(*)(const Delegate*, Args&&...);
+            using proxy = R(*)(const Delegate*, ReflectedArg<std::decay_t<Args>>&&...);
         };
 
         template<class R, class C, class... Args>
@@ -1086,11 +1173,14 @@ namespace axl
         {
             static constexpr auto hash = detail::hashSignature<R, std::add_rvalue_reference<Args>...>();
 
+            using decayed_args = std::tuple<std::decay_t<Args>...>;
+
+            using args    = std::tuple<Args...>;
             using type    = R(Args..., ...);
             using pointer = R(*)(Args..., ...);
                 
             template<class Delegate>
-            using proxy = R(*)(const Delegate*, Args&&..., ...);
+            using proxy = R(*)(const Delegate*, ReflectedArg<std::decay_t<Args>>&&..., ...);
         };
 
         /* ============================================================= */
@@ -1107,6 +1197,12 @@ namespace axl
 
         template<class F>
         using function_signature = typename function_type<F>::type;
+
+        template<class F>
+        using function_args = typename function_type<F>::args;
+
+        template<class F>
+        using function_decayed_args = typename function_type<F>::decayed_args;
 
         template<class F>
         using function_pointer_t = typename function_type<F>::pointer;
@@ -1239,7 +1335,7 @@ namespace axl
         // https://gist.github.com/khvorov/cd626ea3685fd5e8bf14
 
         template<class F>
-        constexpr decltype(auto) retrospective_cast(F&& callable) noexcept
+        constexpr DELEGATE_INLINE decltype(auto) retrospective_cast(F&& callable) noexcept
         {
             if constexpr (traits::is_likely_captureless_lambda_v<F>)
             {
@@ -1561,33 +1657,33 @@ namespace axl
         public:
             constexpr ~MetaFunction() noexcept = default;
 
-            constexpr auto numberOfArguments() const noexcept -> std::size_t override
+            constexpr DELEGATE_INLINE auto numberOfArguments() const noexcept -> std::size_t override
             {
                 return sizeof...(Args);
             }
 
-            constexpr auto reflection() const noexcept -> detail::FixedString<1024> override
+            constexpr DELEGATE_INLINE auto reflection() const noexcept -> detail::FixedString<1024> override
             {
                 constexpr detail::FixedString<1024> reflection(detail::typeName<R(*)(Args...)>());
 
                 return reflection;
             }
 
-            constexpr auto signature() const noexcept -> FunctionSignature override
+            constexpr DELEGATE_INLINE auto signature() const noexcept -> FunctionSignature override
             {
                 constexpr auto signature = detail::typeName<R(*)(Args...)>();
 
                 return signature;
             }
 
-            constexpr auto decayedSignature() const noexcept -> FunctionSignature override
+            constexpr DELEGATE_INLINE auto decayedSignature() const noexcept -> FunctionSignature override
             {
                 constexpr auto signature = detail::typeName<R(*)(std::decay_t<Args>...)>();
 
                 return signature;
             }
 
-            constexpr auto decayedSignatureHash() const noexcept -> std::size_t override
+            constexpr DELEGATE_INLINE auto decayedSignatureHash() const noexcept -> std::size_t override
             {
                 constexpr auto hash = traits::function_hash<R(*)(std::decay_t<Args>...)>;
 
@@ -1679,7 +1775,7 @@ namespace axl
             
         public:
             template<class Proxy, class Delegate>
-            static constexpr auto getProxyForFunction(const IMetaFunction& rhs) noexcept
+            static constexpr DELEGATE_INLINE auto getProxyForFunction(const IMetaFunction& rhs) noexcept
             {
                 // constexpr auto self = IMetaFunction::fromFunctionType<R(*)(Args...)>();
                 constexpr auto hash = traits::function_hash<R(*)(std::decay_t<Args>...)>;
@@ -1696,9 +1792,9 @@ namespace axl
 
                 //return reinterpret_cast<void(*)()>(f);
 
-                // return []<std::size_t... I> (const IMetaFunction& rhs, std::index_sequence<I...>) {
+                return []<std::size_t... I> (const IMetaFunction& rhs, std::index_sequence<I...>) {
                     using Self = MetaFunction<R, Args...>;
-                    size_t i = 0;
+                    //size_t i = 0;
 
                     //using FunctionProxy = traits::delegate_proxy_t<R(*)(Args...), Delegate>;
 
@@ -1706,8 +1802,8 @@ namespace axl
 
                     //return reinterpret_cast<void(*)()>(proxy);
 
-                    return toFunctionPointer<Proxy, Delegate>(getInvokedParameterType<Args>(rhs.nthArgument(i++))...);
-                // }(rhs, Indices);
+                    return toFunctionPointer<Proxy, Delegate>(getInvokedParameterType<Args>(rhs.nthArgument(I))...);
+                }(rhs, Indices);
             }
 
         private:
@@ -1811,7 +1907,7 @@ namespace axl
             }
 
             template<class Arg, bool IsConst, bool IsVolatile>
-            static constexpr auto getExactParameterType() noexcept -> InvokedParameterType
+            static constexpr DELEGATE_INLINE auto getExactParameterType() noexcept -> InvokedParameterType
             {
                 if constexpr (std::is_rvalue_reference_v<Arg>)
                 {
@@ -1857,11 +1953,17 @@ namespace axl
             using NthParam = std::tuple_element_t<I, Tuple>;
 
             template<class Proxy, class Delegate>
-            static constexpr auto toFunctionPointer(auto&&... indices) noexcept -> AnyTarget
+            static constexpr DELEGATE_INLINE auto toFunctionPointer(auto&&... indices) noexcept -> AnyTarget
             {
                 constexpr auto N = std::variant_size_v<InvokedParameter<int>>;
 
-                using MakeProxyFunction = decltype([]<class... Constants>(Constants&&...) constexpr
+                //using ProxyFunction = traits::delegate_proxy_t<R(*)(Args...), Delegate>;
+
+                //constexpr ProxyFunction f = Proxy();
+
+                //return reinterpret_cast<void(*)()>(f);
+
+                using MakeProxyFunction = decltype([]<class... Constants>(Constants&&...) [[msvc::forceinline]]
                 {
                     //using Original = R(*)(Args&&...);
                     //using Invoked = R(*)(Type<Args, Constants::value>&&...);
@@ -1873,8 +1975,8 @@ namespace axl
 
                     constexpr auto Indices = std::make_index_sequence<sizeof...(Constants)>();
 
-                    return []<std::size_t... I>(std::index_sequence<I...>) {
-                        constexpr auto getProxy = []<class F, class... Params>() {
+                    return []<std::size_t... I>(std::index_sequence<I...>) [[msvc::forceinline]] {
+                        constexpr auto getProxy = []<class F, class... Params>() [[msvc::forceinline]] {
                             if constexpr (!std::is_invocable_v<R(*)(Args...), Params...>)
                                 return reinterpret_cast<void(*)()>(nullptr);
                             else
@@ -1936,7 +2038,6 @@ namespace axl
         }
     };
 
-
     /* ===================================================================== */
     /* Helpers to bind functions directly in Delegate constructors.
     /* ===================================================================== */
@@ -1950,10 +2051,10 @@ namespace axl
     struct MemberFunction : Callable { T* instance; };
 
     template<auto Target>
-    inline constexpr auto bind() noexcept -> Function<Target> { return {}; }
+    inline constexpr DELEGATE_INLINE auto bind() noexcept -> Function<Target> { return {}; }
 
     template<auto Target, class T>
-    inline constexpr auto bind(T* instance) noexcept -> MemberFunction<T, Target> { return { instance }; }
+    inline constexpr DELEGATE_INLINE auto bind(T* instance) noexcept -> MemberFunction<T, Target> { return { instance }; }
 
 
     /* ===================================================================== */
@@ -1990,7 +2091,7 @@ namespace axl
         static constexpr bool is_storable_v = is_storable<F>::value;
 
     public:
-        constexpr Delegate() noexcept = default;
+        constexpr DELEGATE_INLINE Delegate() noexcept = default;
 
         template<class R2, class... Args>
         explicit Delegate(std::function<R2(Args...)>&& target) noexcept
@@ -1999,18 +2100,18 @@ namespace axl
         }
 
         template<auto Target>
-        constexpr Delegate(Function<Target>) noexcept
+        constexpr DELEGATE_INLINE Delegate(Function<Target>) noexcept
             : _wrapper { &executeFunction<Target> }
         {}
 
         template<class T, auto T::*Target>
-        constexpr Delegate(MemberFunction<const T, Target> target) noexcept
+        constexpr DELEGATE_INLINE Delegate(MemberFunction<const T, Target> target) noexcept
             : _constInstance { target.instance                         }
             , _wrapper       { &executeMemberFunction<const T, Target> }
         {}
 
         template<class T, auto T::*Target>
-        constexpr Delegate(MemberFunction<T, Target> target) noexcept
+        constexpr DELEGATE_INLINE Delegate(MemberFunction<T, Target> target) noexcept
             : _instance { target.instance                   }
             , _wrapper  { &executeMemberFunction<T, Target> }
         {}
@@ -2019,7 +2120,7 @@ namespace axl
                  typename = std::enable_if_t<(
                     !traits::is_function_v<F>
                  )>>
-        constexpr Delegate(F* target) noexcept
+        constexpr DELEGATE_INLINE Delegate(F* target) noexcept
             : _instance { target                  }
             , _wrapper  { &executeCallableView<F> }
         {}
@@ -2028,7 +2129,7 @@ namespace axl
                  typename = std::enable_if_t<(
                     !traits::is_function_v<F>
                  )>>
-        constexpr Delegate(const F* target) noexcept
+        constexpr DELEGATE_INLINE Delegate(const F* target) noexcept
             : _constInstance { target                        }
             , _wrapper       { &executeCallableView<const F> }
         {}
@@ -2038,7 +2139,7 @@ namespace axl
                     std::is_empty_v<F> &&
                     std::is_default_constructible_v<F>
                  ), int> = 0>
-        constexpr Delegate(F&&) noexcept
+        constexpr DELEGATE_INLINE Delegate(F&&) noexcept
             : _wrapper { &executeEmptyCallable<F> }
         {}
 
@@ -2046,7 +2147,7 @@ namespace axl
                  std::enable_if_t<(
                      traits::is_likely_captureless_lambda_v<F>
                  ), int> = 0>
-        constexpr Delegate(F&& target) noexcept
+        constexpr DELEGATE_INLINE Delegate(F&& target) noexcept
             : Delegate { detail::retrospective_cast(std::forward<F>(target)) }
         {}
 
@@ -2055,14 +2156,14 @@ namespace axl
                      traits::is_likely_capturing_lambda_v<F> &&
                      is_storable_v<std::decay_t<F>>
                  ), int> = 0>
-        constexpr Delegate(F&& target) noexcept
+        constexpr DELEGATE_INLINE Delegate(F&& target) noexcept
             : _wrapper { &executeStatefulCallable<F> }
         {
             new (_storage) F(std::forward<F>(target));
         }
 
         template<class R, class... Args>
-        constexpr Delegate(R (*target)(Args...)) noexcept
+        constexpr DELEGATE_INLINE Delegate(R (*target)(Args...)) noexcept
             : _function { reinterpret_cast<AnyTarget>(target)   }
             , _wrapper  { &executeStatelessCallable<R, Args...> }
         {}
@@ -2075,19 +2176,19 @@ namespace axl
         }
 
         template<auto Target>
-        constexpr void operator=(Function<Target>) noexcept
+        constexpr DELEGATE_INLINE void operator=(Function<Target>) noexcept
         {
             bind<Target>();
         }
             
         template<class T, auto T::*Target>
-        constexpr void operator=(MemberFunction<const T, Target> target) noexcept
+        constexpr DELEGATE_INLINE void operator=(MemberFunction<const T, Target> target) noexcept
         {
             bind<Target>(target.instance);
         }
 
         template<class T, auto T::* Target>
-        constexpr void operator=(MemberFunction<T, Target> target) noexcept
+        constexpr DELEGATE_INLINE void operator=(MemberFunction<T, Target> target) noexcept
         {
             bind<Target>(target.instance);
         }
@@ -2096,7 +2197,7 @@ namespace axl
                  typename = std::enable_if_t<(
                     !traits::is_function_v<F>
                  )>>
-        constexpr void operator=(F* target) noexcept
+        constexpr DELEGATE_INLINE void operator=(F* target) noexcept
         {
             bind(target);
         }
@@ -2105,7 +2206,7 @@ namespace axl
                  typename = std::enable_if_t<(
                     !traits::is_function_v<F>
                  )>>
-        constexpr void operator=(const F* target) noexcept
+        constexpr DELEGATE_INLINE void operator=(const F* target) noexcept
         {
             bind(target);
         }
@@ -2115,7 +2216,7 @@ namespace axl
                     std::is_empty_v<F> &&
                     std::is_default_constructible_v<F>
                  ), int> = 0>
-        constexpr void operator=(F&& target) noexcept
+        constexpr DELEGATE_INLINE void operator=(F&& target) noexcept
         {
             bind<F>();
         }
@@ -2124,7 +2225,7 @@ namespace axl
                  std::enable_if_t<(
                      traits::is_likely_captureless_lambda_v<F>
                  ), int> = 0>
-        constexpr void operator=(F&& target) noexcept
+        constexpr DELEGATE_INLINE void operator=(F&& target) noexcept
         {
             bind(detail::retrospective_cast(std::forward<F>(target)));
         }
@@ -2134,22 +2235,26 @@ namespace axl
                     traits::is_likely_capturing_lambda_v<F> &&
                     is_storable_v<std::decay_t<F>>
                  ), int> = 0>
-        constexpr void operator=(F&& target) noexcept
+        constexpr DELEGATE_INLINE void operator=(F&& target) noexcept
         {
             bind(std::forward<F>(target));
         }
 
         template<class R, class... Args>
-        constexpr void operator=(R(*target)(Args...)) noexcept
+        constexpr DELEGATE_INLINE void operator=(R(*target)(Args...)) noexcept
         {
             bind(target);
         }
 
     public:
+        template<class Arg>
+        using ProxyArg = std::add_const_t<std::add_volatile_t<std::add_lvalue_reference_t<Arg>>>;
+
         template<class... Args>
-        constexpr auto operator ()(Args&&... args) const -> Ret
+        constexpr DELEGATE_INLINE auto operator ()(Args&&... args) const -> Ret
         {
-            using ProxyFunction = Ret(*)(const Delegate*, Args&&...);
+            using InvokedTarget = Ret(*)(Args...);
+            using ProxyFunction = traits::delegate_proxy_t<InvokedTarget, Delegate>;
 
             constexpr MetaFunction<Ret, Args...> invokedFunction {};
 
@@ -2160,17 +2265,17 @@ namespace axl
             const auto function = _wrapper(invokedFunction, true);
             const auto proxy    = reinterpret_cast<ProxyFunction>(function);
 
-            return proxy(this, std::forward<Args>(args)...);
+            return proxy(this, ReflectedArg<std::decay_t<Args>>(DELEGATE_FWD(args))...);
         }
 
-        constexpr void reset() noexcept { _wrapper = &throwBadCall; }
+        constexpr DELEGATE_INLINE void reset() noexcept { _wrapper = &throwBadCall; }
 
-        explicit constexpr operator bool() const noexcept { return hasTarget(); }
+        explicit constexpr DELEGATE_INLINE operator bool() const noexcept { return hasTarget(); }
 
     public:
         template<class R>
         [[nodiscard]]
-        constexpr bool hasReturnType() const noexcept
+        constexpr DELEGATE_INLINE bool hasReturnType() const noexcept
         {
             constexpr bool hasReturnType = std::is_same_v<R, Ret>;
 
@@ -2179,7 +2284,7 @@ namespace axl
 
         template<class... Args>
         [[nodiscard]]
-        constexpr bool isInvokable() const noexcept
+        constexpr DELEGATE_INLINE bool isInvokable() const noexcept
         {
             using ProxyFunction = Ret(*)(const Delegate*, Args&&...);
 
@@ -2192,14 +2297,14 @@ namespace axl
         }
 
         [[nodiscard]]
-        constexpr bool hasTarget() const noexcept
+        constexpr DELEGATE_INLINE bool hasTarget() const noexcept
         {
             return _wrapper != &throwBadCall;
         }
 
         template<auto Target>
         [[nodiscard]]
-        constexpr bool hasTarget() const noexcept
+        constexpr DELEGATE_INLINE bool hasTarget() const noexcept
         {
             return _wrapper == &executeFunction<Target>;
         }
@@ -2209,7 +2314,7 @@ namespace axl
                      std::is_member_function_pointer_v<decltype(Target)>
                  )>>
         [[nodiscard]]
-        constexpr bool hasTarget(const T* instance) const noexcept
+        constexpr DELEGATE_INLINE bool hasTarget(const T* instance) const noexcept
         {
             return _wrapper       == &executeMemberFunction<const T, Target>
                 && _constInstance == instance;
@@ -2220,7 +2325,7 @@ namespace axl
                      std::is_member_function_pointer_v<decltype(Target)>
                  )>>
         [[nodiscard]]
-        constexpr bool hasTarget(T* instance) const noexcept
+        constexpr DELEGATE_INLINE bool hasTarget(T* instance) const noexcept
         {
             return _wrapper  == &executeMemberFunction<T, Target>
                 && _instance == instance;
@@ -2231,7 +2336,7 @@ namespace axl
                      !traits::is_function_v<F>
                  )>>
         [[nodiscard]]
-        constexpr bool hasTarget(const F* instance) const noexcept
+        constexpr DELEGATE_INLINE bool hasTarget(const F* instance) const noexcept
         {
             return _wrapper       == &executeCallableView<const F>
                 && _constInstance == instance;
@@ -2242,7 +2347,7 @@ namespace axl
                      !traits::is_function_v<F>
                  )>>
         [[nodiscard]]
-        constexpr bool hasTarget(F* instance) const noexcept
+        constexpr DELEGATE_INLINE bool hasTarget(F* instance) const noexcept
         {
             return _wrapper  == &executeCallableView<F>
                 && _instance == instance;
@@ -2254,7 +2359,7 @@ namespace axl
                      std::is_default_constructible_v<F>
                  )>>
         [[nodiscard]]
-        constexpr bool hasTarget() const noexcept
+        constexpr DELEGATE_INLINE bool hasTarget() const noexcept
         {
             return _wrapper == &executeEmptyCallable<F>;
         }
@@ -2265,7 +2370,7 @@ namespace axl
                      is_storable_v<std::decay_t<F>>
                  )>>
         [[nodiscard]]
-        constexpr bool hasTarget(const F& target) const noexcept
+        constexpr DELEGATE_INLINE bool hasTarget(const F& target) const noexcept
         {
             if (_wrapper != &executeStatefulCallable<F>)
                 return false;
@@ -2283,7 +2388,7 @@ namespace axl
 
         template<class R2, class...Args>
         [[nodiscard]]
-        constexpr bool hasTarget(R2(*target)(Args...)) const noexcept
+        constexpr DELEGATE_INLINE bool hasTarget(R2(*target)(Args...)) const noexcept
         {
             const auto function = reinterpret_cast<decltype(target)>(_function);
 
@@ -2319,20 +2424,20 @@ namespace axl
         }
 
         template<auto Target>
-        constexpr void bind() noexcept
+        constexpr DELEGATE_INLINE void bind() noexcept
         {
             _wrapper = &executeFunction<Target>;
         }
             
         template<auto Target, class T>
-        constexpr void bind(const T* instance) noexcept
+        constexpr DELEGATE_INLINE void bind(const T* instance) noexcept
         {
             _constInstance = instance;
             _wrapper       = &executeMemberFunction<const T, Target>;
         }
 
         template<auto Target, class T>
-        constexpr void bind(T* instance) noexcept
+        constexpr DELEGATE_INLINE void bind(T* instance) noexcept
         {
             _instance = instance;
             _wrapper  = &executeMemberFunction<T, Target>;
@@ -2342,7 +2447,7 @@ namespace axl
                  typename = std::enable_if_t<(
                      !traits::is_function_v<F>
                  )>>
-        constexpr void bind(F* target) noexcept
+        constexpr DELEGATE_INLINE void bind(F* target) noexcept
         {
             _instance = target;
             _wrapper  = &executeCallableView<F>;
@@ -2352,7 +2457,7 @@ namespace axl
                  typename = std::enable_if_t<(
                      !traits::is_function_v<F>
                  )>>
-        constexpr void bind(const F* target) noexcept
+        constexpr DELEGATE_INLINE void bind(const F* target) noexcept
         {
             _constInstance = target;
             _wrapper       = &executeCallableView<const F>;
@@ -2363,7 +2468,7 @@ namespace axl
                      std::is_empty_v<F> &&
                      std::is_default_constructible_v<F>
                  ), int> = 0>
-        constexpr void bind(F&&) noexcept
+        constexpr DELEGATE_INLINE void bind(F&&) noexcept
         {
             _wrapper = &executeEmptyCallable<F>;
         }
@@ -2372,7 +2477,7 @@ namespace axl
                  std::enable_if_t<(
                      traits::is_likely_captureless_lambda_v<F>
                  ), int> = 0>
-        constexpr void bind(F&& target) noexcept
+        constexpr DELEGATE_INLINE void bind(F&& target) noexcept
         {
             bind(detail::retrospective_cast(std::forward<F>(target)));
         }
@@ -2382,7 +2487,7 @@ namespace axl
                      traits::is_likely_capturing_lambda_v<F> &&
                      is_storable_v<std::decay_t<F>>
                  ), int> = 0>
-        constexpr void bind(F&& target) noexcept
+        constexpr DELEGATE_INLINE void bind(F&& target) noexcept
         {
             _wrapper = &executeStatefulCallable<F>;
 
@@ -2390,7 +2495,7 @@ namespace axl
         }
 
         template<class R, class... Args>
-        constexpr void bind(R(*target)(Args...)) noexcept
+        constexpr DELEGATE_INLINE void bind(R(*target)(Args...)) noexcept
         {
             _function = reinterpret_cast<AnyTarget>(target);
             _wrapper  = &executeStatelessCallable<R, Args...>;
@@ -2398,31 +2503,34 @@ namespace axl
 
     private:
         [[noreturn]]
-        static constexpr auto throwBadCall(const IMetaFunction&, const bool) -> AnyTarget
+        static constexpr DELEGATE_INLINE auto throwBadCall(const IMetaFunction&, const bool) -> AnyTarget
         {
             throw BadDelegateCall();
         }
 
         template<auto Target>
-        static constexpr auto executeFunction(
+        static constexpr DELEGATE_INLINE auto executeFunction(
             const IMetaFunction& invokedFunction,
             const bool throwOnMismatch
         ) -> AnyTarget
         {
-            constexpr auto proxy = []<class... Invoked>(const Delegate * self, Invoked&&... args) constexpr -> Ret {
-                return invoke(Target, DELEGATE_FWD(args)...);
+            constexpr auto proxy = []<class... Invoked>(const Delegate * self, Invoked&&... args) constexpr [[msvc::forceinline]] -> Ret {
+                if constexpr (std::is_void_v<Ret>)
+                    std::invoke(Target, std::forward<Invoked>(args)...);
+                else
+                    return std::invoke(Target, std::forward<Invoked>(args)...);
             };
 
             return getProxyFunction<decltype(Target), decltype(proxy)>(invokedFunction, throwOnMismatch);
         }
 
         template<class T, auto T::*Target>
-        static constexpr auto executeMemberFunction(
+        static constexpr DELEGATE_INLINE auto executeMemberFunction(
             const IMetaFunction& invokedFunction,
             const bool throwOnMismatch
         ) -> AnyTarget
         {
-            constexpr auto proxy = []<class... Invoked>(const Delegate * self, Invoked&&... args) constexpr -> Ret
+            constexpr auto proxy = []<class... Invoked>(const Delegate * self, Invoked&&... args) constexpr [[msvc::forceinline]] -> Ret
             {
                 const auto& instance = [](const Delegate* self) constexpr -> T&
                 {
@@ -2432,19 +2540,22 @@ namespace axl
                     return *static_cast<T*>(self->_instance);
                 }(self);
 
-                return invoke(Target, instance, std::forward<decltype(args)>(args)...);
+                if constexpr (std::is_void_v<Ret>)
+                    std::invoke(Target, instance, std::forward<Invoked>(args)...);
+                else
+                    return std::invoke(Target, instance, std::forward<Invoked>(args)...);
             };
 
             return getProxyFunction<decltype(Target), decltype(proxy)>(invokedFunction, throwOnMismatch);
         }
 
         template<class F>
-        static constexpr auto executeCallableView(
+        static constexpr DELEGATE_INLINE auto executeCallableView(
             const IMetaFunction& invokedFunction,
             const bool throwOnMismatch
         ) -> AnyTarget
         {
-            constexpr auto proxy = []<class... Invoked>(const Delegate * self, Invoked&&... args) constexpr -> Ret
+            constexpr auto proxy = []<class... Invoked>(const Delegate * self, Invoked&&... args) constexpr [[msvc::forceinline]] -> Ret
             {
                 const auto target = [](const Delegate* self) constexpr -> F*
                 {
@@ -2454,98 +2565,101 @@ namespace axl
                     return static_cast<F*>(self->_instance);
                 }(self);
 
-                return invoke(*target, DELEGATE_FWD(args)...);
+                if constexpr (std::is_void_v<Ret>)
+                    std::invoke(*target, std::forward<Invoked>(args)...);
+                else
+                    return std::invoke(*target, std::forward<Invoked>(args)...);
             };
 
             return getProxyFunction<F, decltype(proxy)>(invokedFunction, throwOnMismatch);
         }
 
         template<class F>
-        static constexpr auto executeEmptyCallable(
+        static constexpr DELEGATE_INLINE auto executeEmptyCallable(
             const IMetaFunction& invokedFunction,
             const bool throwOnMismatch
         ) -> AnyTarget
         {
-            constexpr auto proxy = []<class... Invoked>(const Delegate *, Invoked&&... args) constexpr -> Ret {
-                return invoke(F{}, DELEGATE_FWD(args)...);
+            constexpr auto proxy = []<class... Invoked>(const Delegate *, ReflectedArg<Invoked>&&... args) constexpr -> Ret {
+                using OriginalArgs = traits::function_args<F>;
+                using DecayedArgs  = traits::function_decayed_args<F>;
+
+                static_assert(std::is_same_v<std::tuple<Invoked...>, DecayedArgs>);
+
+                constexpr auto Indices = std::make_index_sequence<sizeof...(Invoked)>();
+
+                return [...args = DELEGATE_FWD(args)]<std::size_t... I>(std::index_sequence<I...>) constexpr
+                {
+                    if constexpr (std::is_void_v<Ret>)
+                        std::invoke(F{}, args.forward<std::tuple_element_t<I, OriginalArgs>>()...);
+                    else
+                        return std::invoke(F{}, args.forward<std::tuple_element_t<I, OriginalArgs>>()...);
+                }(Indices);
             };
 
             return getProxyFunction<F, decltype(proxy)>(invokedFunction, throwOnMismatch);
         }
 
         template<class F>
-        static constexpr auto executeStatefulCallable(
+        static constexpr DELEGATE_INLINE auto executeStatefulCallable(
             const IMetaFunction& invokedFunction,
             const bool throwOnMismatch
         ) -> AnyTarget
         {
-            constexpr auto proxy = []<class... Invoked>(const Delegate * self, Invoked&&... args) constexpr -> Ret
+            constexpr auto proxy = []<class... Invoked>(const Delegate * self, Invoked&&... args) constexpr [[msvc::forceinline]] -> Ret
             {
                 const auto& target = *std::launder(reinterpret_cast<const F*>(_storage));
 
-                return invoke(target, DELEGATE_FWD(args)...);
+                if constexpr (std::is_void_v<Ret>)
+                    std::invoke(target, std::forward<Invoked>(args)...);
+                else
+                    return std::invoke(target, std::forward<Invoked>(args)...);
             };
 
             return getProxyFunction<F, decltype(proxy)>(invokedFunction, throwOnMismatch);
         }
 
         template<class R, class... Args>
-        static constexpr auto executeStatelessCallable(
+        static constexpr DELEGATE_INLINE auto executeStatelessCallable(
             const IMetaFunction& invokedFunction,
             const bool throwOnMismatch
         ) -> AnyTarget
         {
-            constexpr auto proxy = []<class... Invoked>(const Delegate* self, Invoked&&... args) constexpr -> Ret
+            constexpr auto proxy = []<class... Invoked>(const Delegate* self, Invoked&&... args) constexpr [[msvc::forceinline]] -> Ret
             {
                 const auto target = reinterpret_cast<R(*)(Args...)>(self->_function);
 
-                return invoke(target, DELEGATE_FWD(args)...);
+                if constexpr (std::is_void_v<Ret>)
+                    std::invoke(target, std::forward<Invoked>(args)...);
+                else
+                    return std::invoke(target, std::forward<Invoked>(args)...);
             };
 
             return getProxyFunction<R(*)(Args...), decltype(proxy)>(invokedFunction, throwOnMismatch);
         }
 
         template<class Target, class GenericProxy>
-        static constexpr auto getProxyFunction(
+        static constexpr DELEGATE_INLINE auto getProxyFunction(
             const IMetaFunction& invoked,
             const bool throwOnMismatch
         ) -> AnyTarget
         {
             constexpr auto target = IMetaFunction::fromFunctionType<Target>();
+            constexpr auto decayedSignatureHash = target.decayedSignatureHash();
 
-            //using FunctionProxy = traits::delegate_proxy_t<Target, Delegate>;
+            using FunctionProxy = traits::delegate_proxy_t<Target, Delegate>;
 
-            //constexpr FunctionProxy proxy = GenericProxy();
+            constexpr FunctionProxy proxy = GenericProxy();
 
-            if (const auto proxy = target.getProxyForFunction<GenericProxy, Delegate>(invoked))
-                 return proxy;
+            //if (const auto proxy = target.getProxyForFunction<GenericProxy, Delegate>(invoked))
+            //     return proxy;
+
+            if (decayedSignatureHash == invoked.decayedSignatureHash())
+                return reinterpret_cast<AnyTarget>(proxy);
             else if (throwOnMismatch)
                 throw BadDelegateArguments(target.signature(), invoked.signature());
 
             return reinterpret_cast<AnyTarget>(nullptr);
-            // return reinterpret_cast<AnyTarget>(proxy);
-        }
-
-        template<class F, class... Args>
-        static constexpr auto invoke(F&& target, Args&&... args) -> Ret
-        {
-            if constexpr (!std::is_invocable_v<F, Args&&...>)
-            {
-                return;
-                //constexpr auto target  = IMetaFunction::fromFunctionType<F>();
-                //constexpr auto invoked = IMetaFunction::fromFunctionType<Ret(*)(Args...)>();
-
-                //throw BadDelegateArguments(target.signature(), invoked.signature());
-
-                //static_assert(
-                //    std::is_invocable_v<F, Args...>,
-                //    "[Delegate] You are trying to invoke a function with non compatible arguments."
-                //);
-            }
-            else if constexpr (std::is_void_v<Ret>)
-                std::invoke(DELEGATE_FWD(target), DELEGATE_FWD(args)...);
-            else
-                return std::invoke(DELEGATE_FWD(target), DELEGATE_FWD(args)...);
         }
 
     protected:
@@ -2588,13 +2702,13 @@ namespace axl
         static constexpr bool is_storable_v = is_storable<F>::value;
 
     public:
-        constexpr Delegate() noexcept = default;
+        constexpr DELEGATE_INLINE Delegate() noexcept = default;
 
         template<class R2, class... UArgs,
                  typename = std::enable_if_t<(
                      std::is_invocable_r_v<Ret, std::function<R2(UArgs...)>, Args...>
                  )>>
-        explicit Delegate(std::function<R2(UArgs...)>&& target) noexcept
+        explicit DELEGATE_INLINE Delegate(std::function<R2(UArgs...)>&& target) noexcept
         {
             bind(DELEGATE_FWD(target));
         }
@@ -2603,7 +2717,7 @@ namespace axl
                  typename = std::enable_if_t<(
                     std::is_invocable_r_v<Ret, decltype(Target), Args...>
                  )>>
-        constexpr Delegate(Function<Target>) noexcept
+        constexpr DELEGATE_INLINE Delegate(Function<Target>) noexcept
             : _proxy { &executeFunction<Target> }
         {}
 
@@ -2611,7 +2725,7 @@ namespace axl
                  typename = std::enable_if_t<(
                      std::is_invocable_r_v<Ret, decltype(Target), const T&, Args...>
                  )>>
-        constexpr Delegate(MemberFunction<const T, Target> target) noexcept
+        constexpr DELEGATE_INLINE Delegate(MemberFunction<const T, Target> target) noexcept
             : _constInstance { target.instance                         }
             , _proxy         { &executeMemberFunction<const T, Target> }
         {}
@@ -2620,7 +2734,7 @@ namespace axl
                  typename = std::enable_if_t<(
                      std::is_invocable_r_v<Ret, decltype(Target), T&, Args...>
                  )>>
-        constexpr Delegate(MemberFunction<T, Target> target) noexcept
+        constexpr DELEGATE_INLINE Delegate(MemberFunction<T, Target> target) noexcept
             : _instance { target.instance                   }
             , _proxy    { &executeMemberFunction<T, Target> }
         {}
@@ -2630,7 +2744,7 @@ namespace axl
                      std::is_invocable_r_v<Ret, F, Args...> &&
                      !traits::is_function_v<F>
                  )>>
-        constexpr Delegate(F* target) noexcept
+        constexpr DELEGATE_INLINE Delegate(F* target) noexcept
             : _instance { target                  }
             , _proxy    { &executeCallableView<F> }
         {}
@@ -2640,7 +2754,7 @@ namespace axl
                      std::is_invocable_r_v<Ret, const F, Args...> &&
                      !traits::is_function_v<F>
                  )>>
-        constexpr Delegate(const F* target) noexcept
+        constexpr DELEGATE_INLINE Delegate(const F* target) noexcept
             : _constInstance { target                        }
             , _proxy         { &executeCallableView<const F> }
         {}
@@ -2651,7 +2765,7 @@ namespace axl
                      std::is_default_constructible_v<F> &&
                      std::is_invocable_r_v<Ret, F, Args...>
                  ), int> = 0>
-        constexpr Delegate(F&&) noexcept
+        constexpr DELEGATE_INLINE Delegate(F&&) noexcept
             : _proxy { &executeEmptyCallable<F> }
         {}
 
@@ -2659,7 +2773,7 @@ namespace axl
                  std::enable_if_t<(
                      traits::is_likely_captureless_lambda_v<F>
                  ), int> = 0>
-        constexpr Delegate(F&& target) noexcept
+        constexpr DELEGATE_INLINE Delegate(F&& target) noexcept
             : Delegate { detail::retrospective_cast(std::forward<F>(target)) }
         {}
 
@@ -2669,7 +2783,7 @@ namespace axl
                      is_storable_v<std::decay_t<F>> &&
                      std::is_invocable_r_v<Ret, const F&, Args...>
                  ), int> = 0>
-        constexpr Delegate(F&& target) noexcept
+        constexpr DELEGATE_INLINE Delegate(F&& target) noexcept
             : _proxy { &executeStatefulCallable<F> }
         {
             new (_storage) F(std::forward<F>(target));
@@ -2679,7 +2793,7 @@ namespace axl
                  typename = std::enable_if_t<(
                      std::is_invocable_r_v<Ret, R(*)(UArgs...), Args...>
                  )>>
-        constexpr Delegate(R(*target)(UArgs...)) noexcept
+        constexpr DELEGATE_INLINE Delegate(R(*target)(UArgs...)) noexcept
             : _function { reinterpret_cast<void (*)()>(target)        }
             , _proxy    { &executeStatelessCallable<R, UArgs...> }
         {}
@@ -2698,7 +2812,7 @@ namespace axl
                  typename = std::enable_if_t<(
                      std::is_invocable_r_v<Ret, decltype(Target), Args...>
                  )>>
-        constexpr void operator=(Function<Target>) noexcept
+        constexpr DELEGATE_INLINE void operator=(Function<Target>) noexcept
         {
             bind<Target>();
         }
@@ -2707,7 +2821,7 @@ namespace axl
                  typename = std::enable_if_t<(
                      std::is_invocable_r_v<Ret, decltype(Target), const T&, Args...>
                  )>>
-        constexpr void operator=(MemberFunction<const T, Target> target) noexcept
+        constexpr DELEGATE_INLINE void operator=(MemberFunction<const T, Target> target) noexcept
         {
             bind<Target>(target.instance);
         }
@@ -2716,7 +2830,7 @@ namespace axl
                  typename = std::enable_if_t<(
                      std::is_invocable_r_v<Ret, decltype(Target), T&, Args...>
                  )>>
-        constexpr void operator=(MemberFunction<T, Target> target) noexcept
+        constexpr DELEGATE_INLINE void operator=(MemberFunction<T, Target> target) noexcept
         {
             bind<Target>(target.instance);
         }
@@ -2726,7 +2840,7 @@ namespace axl
                      std::is_invocable_r_v<Ret, F, Args...> &&
                      !traits::is_function_v<F>
                  )>>
-        constexpr void operator=(F* target) noexcept
+        constexpr DELEGATE_INLINE void operator=(F* target) noexcept
         {
             bind(target);
         }
@@ -2736,7 +2850,7 @@ namespace axl
                      std::is_invocable_r_v<Ret, const F, Args...> &&
                      !traits::is_function_v<F>
                  )>>
-        constexpr void operator=(const F* target) noexcept
+        constexpr DELEGATE_INLINE void operator=(const F* target) noexcept
         {
             bind(target);
         }
@@ -2747,7 +2861,7 @@ namespace axl
                      std::is_default_constructible_v<F> &&
                      std::is_invocable_r_v<Ret, F, Args...>
                  ), int> = 0>
-        constexpr void operator=(F&&) noexcept
+        constexpr DELEGATE_INLINE void operator=(F&&) noexcept
         {
             bind<F>();
         }
@@ -2756,7 +2870,7 @@ namespace axl
                  std::enable_if_t<(
                      traits::is_likely_captureless_lambda_v<F>
                  ), int> = 0>
-        constexpr void operator=(F&& target) noexcept
+        constexpr DELEGATE_INLINE void operator=(F&& target) noexcept
         {
             bind(std::forward<F>(target));
         }
@@ -2767,7 +2881,7 @@ namespace axl
                      is_storable_v<std::decay_t<F>> &&
                      std::is_invocable_r_v<Ret, const F&, Args...>
                  ), int> = 0>
-        constexpr void operator=(F&& target) noexcept
+        constexpr DELEGATE_INLINE void operator=(F&& target) noexcept
         {
             bind(std::forward<F>(target));
         }
@@ -2776,7 +2890,7 @@ namespace axl
                  typename = std::enable_if_t<(
                      std::is_invocable_r_v<Ret, R(*)(UArgs...), Args...>
                  )>>
-        constexpr void operator=(R(*target)(UArgs...)) noexcept
+        constexpr DELEGATE_INLINE void operator=(R(*target)(UArgs...)) noexcept
         {
             bind(target);
         }
@@ -2789,14 +2903,14 @@ namespace axl
             return _proxy(this, std::forward<UArgs>(args)...);
         }
 
-        constexpr void reset() noexcept { _proxy = &throwBadCall; }
+        constexpr DELEGATE_INLINE void reset() noexcept { _proxy = &throwBadCall; }
 
-        explicit constexpr operator bool() const noexcept { return hasTarget(); }
+        explicit constexpr DELEGATE_INLINE operator bool() const noexcept { return hasTarget(); }
 
     public:
         template<class R>
         [[nodiscard]]
-        constexpr bool hasReturnType() const noexcept
+        constexpr DELEGATE_INLINE bool hasReturnType() const noexcept
         {
             constexpr bool hasReturnType = std::is_same_v<R, Ret>;
 
@@ -2805,7 +2919,7 @@ namespace axl
 
         template<class... UArgs>
         [[nodiscard]]
-        constexpr bool isInvokable() const noexcept
+        constexpr DELEGATE_INLINE bool isInvokable() const noexcept
         {
             constexpr bool isInvokable = std::is_invocable_r_v<Ret, Ret(*)(Args...), UArgs...>;
 
@@ -2813,7 +2927,7 @@ namespace axl
         }
 
         [[nodiscard]]
-        constexpr bool hasTarget() const noexcept
+        constexpr DELEGATE_INLINE bool hasTarget() const noexcept
         {
             return _proxy != &throwBadCall;
         }
@@ -2823,7 +2937,7 @@ namespace axl
                      std::is_invocable_r_v<Ret, decltype(Target), Args...>
                  )>>
         [[nodiscard]]
-        constexpr bool hasTarget() const noexcept
+        constexpr DELEGATE_INLINE bool hasTarget() const noexcept
         {
             return _proxy == &executeFunction<Target>;
         }
@@ -2834,7 +2948,7 @@ namespace axl
                      std::is_invocable_r_v<Ret, decltype(Target), Args...>
                  )>>
         [[nodiscard]]
-        constexpr bool hasTarget(const T* instance) const noexcept
+        constexpr DELEGATE_INLINE bool hasTarget(const T* instance) const noexcept
         {
             return _proxy         == &executeMemberFunction<const T, Target>
                 && _constInstance == instance;
@@ -2846,7 +2960,7 @@ namespace axl
                      std::is_invocable_r_v<Ret, decltype(Target), Args...>
                  )>>
         [[nodiscard]]
-        constexpr bool hasTarget(T* instance) const noexcept
+        constexpr DELEGATE_INLINE bool hasTarget(T* instance) const noexcept
         {
             return _proxy    == &executeMemberFunction<T, Target>
                 && _instance == instance;
@@ -2858,7 +2972,7 @@ namespace axl
                      std::is_invocable_r_v<Ret, const F, Args...>
                  )>>
         [[nodiscard]]
-        constexpr bool hasTarget(const F* instance) const noexcept
+        constexpr DELEGATE_INLINE bool hasTarget(const F* instance) const noexcept
         {
             return _proxy         == &executeCallableView<const F>
                 && _constInstance == instance;
@@ -2870,7 +2984,7 @@ namespace axl
                      std::is_invocable_r_v<Ret, F, Args...>
                  )>>
         [[nodiscard]]
-        constexpr bool hasTarget(F* instance) const noexcept
+        constexpr DELEGATE_INLINE bool hasTarget(F* instance) const noexcept
         {
             return _proxy    == &executeCallableView<F>
                 && _instance == instance;
@@ -2883,7 +2997,7 @@ namespace axl
                      std::is_invocable_r_v<Ret, F, Args...>
                  )>>
         [[nodiscard]]
-        constexpr bool hasTarget() const noexcept
+        constexpr DELEGATE_INLINE bool hasTarget() const noexcept
         {
             return _proxy == &executeEmptyCallable<F>;
         }
@@ -2895,7 +3009,7 @@ namespace axl
                      std::is_invocable_r_v<Ret, const F&, Args...>
                  )>>
         [[nodiscard]]
-        constexpr bool hasTarget(const F& target) const noexcept
+        constexpr DELEGATE_INLINE bool hasTarget(const F& target) const noexcept
         {
             if (_proxy != &executeStatefulCallable<F>)
                 return false;
@@ -2916,7 +3030,7 @@ namespace axl
                      std::is_invocable_r_v<Ret, R2(*)(UArgs...), Args...>
                  )>>
         [[nodiscard]]
-        constexpr bool hasTarget(R2(*target)(UArgs...)) const noexcept
+        constexpr DELEGATE_INLINE bool hasTarget(R2(*target)(UArgs...)) const noexcept
         {
             const auto function = reinterpret_cast<decltype(target)>(_function);
 
@@ -2958,7 +3072,7 @@ namespace axl
                  typename = std::enable_if_t<(
                      std::is_invocable_r_v<Ret, decltype(Target), Args...>
                  )>>
-        constexpr void bind() noexcept
+        constexpr DELEGATE_INLINE void bind() noexcept
         {
             _proxy = &executeFunction<Target>;
         }
@@ -2968,7 +3082,7 @@ namespace axl
                  typename = std::enable_if_t<(
                      std::is_invocable_r_v<Ret, decltype(Target), const T&, Args...>
                  )>>
-        constexpr void bind(const T* instance) noexcept
+        constexpr DELEGATE_INLINE void bind(const T* instance) noexcept
         {
             _constInstance = instance;
             _proxy         = &executeMemberFunction<const T, Target>;
@@ -2978,7 +3092,7 @@ namespace axl
                  typename = std::enable_if_t<(
                      std::is_invocable_r_v<Ret, decltype(Target), T&, Args...>
                  )>>
-        constexpr void bind(T* instance) noexcept
+        constexpr DELEGATE_INLINE void bind(T* instance) noexcept
         {
             _instance = instance;
             _proxy    = &executeMemberFunction<T, Target>;
@@ -2989,7 +3103,7 @@ namespace axl
                      std::is_invocable_r_v<Ret, F, Args...> &&
                      !traits::is_function_v<F>
                  )>>
-        constexpr void bind(F* target) noexcept
+        constexpr DELEGATE_INLINE void bind(F* target) noexcept
         {
             _instance = target;
             _proxy    = &executeCallableView<F>;
@@ -3000,7 +3114,7 @@ namespace axl
                      std::is_invocable_r_v<Ret, const F, Args...> &&
                      !traits::is_function_v<F>
                  )>>
-        constexpr void bind(const F* target) noexcept
+        constexpr DELEGATE_INLINE void bind(const F* target) noexcept
         {
             _constInstance = target;
             _proxy        = &executeCallableView<const F>;
@@ -3012,7 +3126,7 @@ namespace axl
                      std::is_default_constructible_v<F> &&
                      std::is_invocable_r_v<Ret, F, Args...>
                  )>>
-        constexpr void bind() noexcept
+        constexpr DELEGATE_INLINE void bind() noexcept
         {
             _proxy = &executeEmptyCallable<F>;
         }
@@ -3022,7 +3136,7 @@ namespace axl
                      traits::is_likely_captureless_lambda_v<F> &&
                      std::is_invocable_r_v<Ret, F, Args...>
                  ), int> = 0>
-        constexpr void bind(F&& target) noexcept
+        constexpr DELEGATE_INLINE void bind(F&& target) noexcept
         {
             bind(detail::retrospective_cast(std::forward<F>(target)));
         }
@@ -3033,7 +3147,7 @@ namespace axl
                      is_storable_v<std::decay_t<F>> &&
                      std::is_invocable_r_v<Ret, const F&, Args...>
                  ), int> = 0>
-        constexpr void bind(F&& target) noexcept
+        constexpr DELEGATE_INLINE void bind(F&& target) noexcept
         {
             _proxy = &executeStatefulCallable<F>;
 
@@ -3044,7 +3158,7 @@ namespace axl
                  typename = std::enable_if_t<(
                      std::is_invocable_r_v<Ret, R(*)(UArgs...), Args...>
                  )>>
-        constexpr void bind(R(*target)(UArgs...)) noexcept
+        constexpr DELEGATE_INLINE void bind(R(*target)(UArgs...)) noexcept
         {
             _function = reinterpret_cast<void (*)()>(target);
             _proxy    = &executeStatelessCallable<R, UArgs...>;
@@ -3052,19 +3166,22 @@ namespace axl
 
     private:
         [[noreturn]]
-        static constexpr auto throwBadCall(const Delegate*, Args&&...) -> Ret
+        static constexpr DELEGATE_INLINE auto throwBadCall(const Delegate*, Args&&...) -> Ret
         {
             throw BadDelegateCall();
         }
 
         template<auto Target>
-        static constexpr auto executeFunction(const Delegate*, Args&&... args) -> Ret
+        static constexpr DELEGATE_INLINE auto executeFunction(const Delegate*, Args&&... args) -> Ret
         {
-            return invoke(Target, std::forward<Args>(args)...);
+            if constexpr (std::is_void_v<Ret>)
+                std::invoke(Target, DELEGATE_FWD(args)...);
+            else
+                return std::invoke(Target, DELEGATE_FWD(args)...);
         }
 
         template<class T, auto T::*Target>
-        static constexpr auto executeMemberFunction(const Delegate* self, Args&&... args) -> Ret
+        static constexpr DELEGATE_INLINE auto executeMemberFunction(const Delegate* self, Args&&... args) -> Ret
         {
             const auto& instance = [](const Delegate* self) constexpr noexcept -> T&
             {
@@ -3074,11 +3191,14 @@ namespace axl
                 return *static_cast<T*>(self->_instance);
             }(self);
 
-            return invoke(Target, instance, std::forward<Args>(args)...);
+            if constexpr (std::is_void_v<Ret>)
+                std::invoke(Target, instance, std::forward<Args>(args)...);
+            else
+                return std::invoke(Target, instance, std::forward<Args>(args)...);
         }
 
         template<class F>
-        static constexpr auto executeCallableView(const Delegate* self, Args&&... args) -> Ret
+        static constexpr DELEGATE_INLINE auto executeCallableView(const Delegate* self, Args&&... args) -> Ret
         {
             const auto target = [](const Delegate* self) constexpr noexcept -> F*
             {
@@ -3088,38 +3208,41 @@ namespace axl
                 return static_cast<F*>(self->_instance);
             }(self);
 
-            return invoke(*target, std::forward<Args>(args)...);
+            if constexpr (std::is_void_v<Ret>)
+                std::invoke(*target, std::forward<Args>(args)...);
+            else
+                return std::invoke(*target, std::forward<Args>(args)...);
         }
 
         template<class F>
-        static constexpr auto executeEmptyCallable(const Delegate*, Args&&... args) -> Ret
+        static constexpr DELEGATE_INLINE auto executeEmptyCallable(const Delegate*, Args&&... args) -> Ret
         {
-            return invoke(F{}, std::forward<Args>(args)...);
+            if constexpr (std::is_void_v<Ret>)
+                std::invoke(F{}, std::forward<Args>(args)...);
+            else
+                return std::invoke(F{}, std::forward<Args>(args)...);
         }
 
         template<class F>
-        static constexpr auto executeStatefulCallable(const Delegate* self, Args&&... args) -> Ret
+        static constexpr DELEGATE_INLINE auto executeStatefulCallable(const Delegate* self, Args&&... args) -> Ret
         {
             const auto& target = *std::launder(reinterpret_cast<const F*>(self->_storage));
 
-            return invoke(target, std::forward<Args>(args)...);
+            if constexpr (std::is_void_v<Ret>)
+                std::invoke(target, std::forward<Args>(args)...);
+            else
+                return std::invoke(target, std::forward<Args>(args)...);
         }
 
         template<class R2, class... UArgs>
-        static constexpr auto executeStatelessCallable(const Delegate* self, Args&&...args) -> Ret
+        static constexpr DELEGATE_INLINE auto executeStatelessCallable(const Delegate* self, Args&&... args) -> Ret
         {
             const auto target = reinterpret_cast<R2(*)(UArgs...)>(self->_function);
 
-            return invoke(target, std::forward<Args>(args)...);
-        }
-
-        template<class F>
-        static constexpr auto invoke(F&& target, Args&&... args) -> Ret
-        {
             if constexpr (std::is_void_v<Ret>)
-                std::invoke(DELEGATE_FWD(target), DELEGATE_FWD(args)...);
+                std::invoke(target, std::forward<Args>(args)...);
             else
-                return std::invoke(DELEGATE_FWD(target), DELEGATE_FWD(args)...);
+                return std::invoke(target, std::forward<Args>(args)...);
         }
 
     protected:
