@@ -1024,6 +1024,9 @@ namespace axl
 
             template<class Delegate>
             using proxy = R(*)(const Delegate*, ReflectedArg<std::decay_t<Args>>&&...);
+
+            template<class Delegate>
+            using proxy2 = R(*)(const Delegate*, Args&&...);
         };
 
         template<class R, class... Args>
@@ -1039,6 +1042,9 @@ namespace axl
                 
             template<class Delegate>
             using proxy = R(*)(const Delegate*, ReflectedArg<std::decay_t<Args>>&&..., ...);
+
+            template<class Delegate>
+            using proxy2 = R(*)(const Delegate*, Args&&..., ...);
         };
 
         template<class R, class... Args>
@@ -1054,6 +1060,9 @@ namespace axl
                 
             template<class Delegate>
             using proxy = R(*)(const Delegate*, ReflectedArg<std::decay_t<Args>>&&...);
+
+            template<class Delegate>
+            using proxy2 = R(*)(const Delegate*, Args&&...);
         };
 
         template<class R, class... Args>
@@ -1069,6 +1078,9 @@ namespace axl
                 
             template<class Delegate>
             using proxy = R(*)(const Delegate*, ReflectedArg<std::decay_t<Args>>&&..., ...);
+
+            template<class Delegate>
+            using proxy2 = R(*)(const Delegate*, Args&&..., ...);
         };
 
         /* ------------------------------------------------------------- */
@@ -1088,6 +1100,9 @@ namespace axl
                 
             template<class Delegate>
             using proxy = R(*)(const Delegate*, ReflectedArg<std::decay_t<Args>>&&...);
+
+            template<class Delegate>
+            using proxy2 = R(*)(const Delegate*, Args&&...);
         };
 
         template<class R, class C, class... Args>
@@ -1103,6 +1118,9 @@ namespace axl
                 
             template<class Delegate>
             using proxy = R(*)(const Delegate*, ReflectedArg<std::decay_t<Args>>&&..., ...);
+
+            template<class Delegate>
+            using proxy2 = R(*)(const Delegate*, Args&&..., ...);
         };
 
         template<class R, class C, class... Args>
@@ -1118,6 +1136,9 @@ namespace axl
                 
             template<class Delegate>
             using proxy = R(*)(const Delegate*, ReflectedArg<std::decay_t<Args>>&&...);
+
+            template<class Delegate>
+            using proxy2 = R(*)(const Delegate*, Args&&...);
         };
 
         template<class R, class C, class... Args>
@@ -1133,6 +1154,9 @@ namespace axl
                 
             template<class Delegate>
             using proxy = R(*)(const Delegate*, ReflectedArg<std::decay_t<Args>>&&..., ...);
+
+            template<class Delegate>
+            using proxy2 = R(*)(const Delegate*, Args&&..., ...);
         };
 
         /* ------------------------------------------------------------- */
@@ -1152,6 +1176,9 @@ namespace axl
                 
             template<class Delegate>
             using proxy = R(*)(const Delegate*, ReflectedArg<std::decay_t<Args>>&&...);
+
+            template<class Delegate>
+            using proxy2 = R(*)(const Delegate*, Args&&...);
         };
 
         template<class R, class C, class... Args>
@@ -1167,6 +1194,9 @@ namespace axl
                 
             template<class Delegate>
             using proxy = R(*)(const Delegate*, ReflectedArg<std::decay_t<Args>>&&..., ...);
+            
+            template<class Delegate>
+            using proxy2 = R(*)(const Delegate*, Args&&..., ...);
         };
 
         template<class R, class C, class... Args>
@@ -1182,6 +1212,9 @@ namespace axl
                 
             template<class Delegate>
             using proxy = R(*)(const Delegate*, ReflectedArg<std::decay_t<Args>>&&...);
+
+            template<class Delegate>
+            using proxy2 = R(*)(const Delegate*, Args&&...);
         };
 
         template<class R, class C, class... Args>
@@ -1197,6 +1230,9 @@ namespace axl
                 
             template<class Delegate>
             using proxy = R(*)(const Delegate*, ReflectedArg<std::decay_t<Args>>&&..., ...);
+            
+            template<class Delegate>
+            using proxy2 = R(*)(const Delegate*, Args&&..., ...);
         };
 
         /* ============================================================= */
@@ -1229,6 +1265,9 @@ namespace axl
 
         template<class F, class Delegate>
         using delegate_proxy_t = typename function_type<F>::template proxy<Delegate>;
+
+        template<class F, class Delegate>
+        using delegate_proxy_two_t = typename function_type<F>::template proxy2<Delegate>;
 
         template<class F>
         inline constexpr auto function_hash = function_type<F>::hash;
@@ -1901,7 +1940,7 @@ namespace axl
                                 return reinterpret_cast<void(*)()>(nullptr);
                             else
                             {
-                                using FunctionProxy = traits::delegate_proxy_t<F, Delegate>;
+                                using FunctionProxy = traits::delegate_proxy_two_t<F, Delegate>;
     
                                 constexpr FunctionProxy proxy = Proxy();
 
@@ -2185,6 +2224,7 @@ namespace axl
             const auto function = _wrapper(invokedFunction, true);
             const auto proxy    = reinterpret_cast<ProxyFunction>(function);
 
+            // return proxy(this, std::forward<Args>(args)...);
             return proxy(this, ReflectedArg<std::decay_t<Args>>(DELEGATE_FWD(args))...);
         }
 
@@ -2434,12 +2474,26 @@ namespace axl
             const bool throwOnMismatch
         ) -> AnyTarget
         {
-            constexpr auto proxy = []<class... Invoked>(const Delegate * self, Invoked&&... args) constexpr [[msvc::forceinline]] -> Ret {
-                if constexpr (std::is_void_v<Ret>)
-                    std::invoke(Target, std::forward<Invoked>(args)...);
-                else
-                    return std::invoke(Target, std::forward<Invoked>(args)...);
+            constexpr auto proxy = []<class... Invoked>(const Delegate*, ReflectedArg<Invoked>&&... args) constexpr -> Ret {
+                using FunctionPointer = traits::function_pointer_t<decltype(Target)>;
+
+                constexpr FunctionPointer stub = nullptr;
+
+                return [...args = DELEGATE_FWD(args)]<class... Args>(Ret(*)(Args...)) constexpr
+                {
+                    if constexpr (std::is_void_v<Ret>)
+                        std::invoke(Target, args.forward<Args>()...);
+                    else
+                        return std::invoke(Target, args.forward<Args>()...);
+                }(stub);
             };
+
+            //constexpr auto proxy = []<class... Invoked>(const Delegate * self, Invoked&&... args) constexpr [[msvc::forceinline]] -> Ret {
+            //    if constexpr (std::is_void_v<Ret>)
+            //        std::invoke(Target, std::forward<Invoked>(args)...);
+            //    else
+            //        return std::invoke(Target, std::forward<Invoked>(args)...);
+            //};
 
             return getProxyFunction<decltype(Target), decltype(proxy)>(invokedFunction, throwOnMismatch);
         }
@@ -2450,21 +2504,44 @@ namespace axl
             const bool throwOnMismatch
         ) -> AnyTarget
         {
-            constexpr auto proxy = []<class... Invoked>(const Delegate * self, Invoked&&... args) constexpr [[msvc::forceinline]] -> Ret
-            {
-                const auto& instance = [](const Delegate* self) constexpr -> T&
+            constexpr auto proxy = []<class... Invoked>(const Delegate* self, ReflectedArg<Invoked>&&... args) constexpr -> Ret {
+                using FunctionPointer = traits::function_pointer_t<decltype(Target)>;
+
+                constexpr FunctionPointer stub = nullptr;
+
+                return [...args = DELEGATE_FWD(args), self]<class... Args>(Ret(*)(Args...)) constexpr
                 {
-                    if constexpr (std::is_const_v<T>)
-                        return *static_cast<T*>(self->_constInstance);
+                    const auto& instance = [](const Delegate* self) constexpr -> T&
+                    {
+                        if constexpr (std::is_const_v<T>)
+                            return *static_cast<T*>(self->_constInstance);
+                        else
+                            return *static_cast<T*>(self->_instance);
+                    }(self);
 
-                    return *static_cast<T*>(self->_instance);
-                }(self);
 
-                if constexpr (std::is_void_v<Ret>)
-                    std::invoke(Target, instance, std::forward<Invoked>(args)...);
-                else
-                    return std::invoke(Target, instance, std::forward<Invoked>(args)...);
+                    if constexpr (std::is_void_v<Ret>)
+                        std::invoke(Target, instance, args.forward<Args>()...);
+                    else
+                        return std::invoke(Target, instance, args.forward<Args>()...);
+                }(stub);
             };
+
+            //constexpr auto proxy = []<class... Invoked>(const Delegate * self, Invoked&&... args) constexpr [[msvc::forceinline]] -> Ret
+            //{
+            //    const auto& instance = [](const Delegate* self) constexpr -> T&
+            //    {
+            //        if constexpr (std::is_const_v<T>)
+            //            return *static_cast<T*>(self->_constInstance);
+
+            //        return *static_cast<T*>(self->_instance);
+            //    }(self);
+
+            //    if constexpr (std::is_void_v<Ret>)
+            //        std::invoke(Target, instance, std::forward<Invoked>(args)...);
+            //    else
+            //        return std::invoke(Target, instance, std::forward<Invoked>(args)...);
+            //};
 
             return getProxyFunction<decltype(Target), decltype(proxy)>(invokedFunction, throwOnMismatch);
         }
@@ -2475,21 +2552,43 @@ namespace axl
             const bool throwOnMismatch
         ) -> AnyTarget
         {
-            constexpr auto proxy = []<class... Invoked>(const Delegate * self, Invoked&&... args) constexpr [[msvc::forceinline]] -> Ret
-            {
-                const auto target = [](const Delegate* self) constexpr -> F*
-                {
-                    if constexpr (std::is_const_v<F>)
-                        return static_cast<F*>(self->_constInstance);
-                        
-                    return static_cast<F*>(self->_instance);
-                }(self);
+            constexpr auto proxy = []<class... Invoked>(const Delegate* self, ReflectedArg<Invoked>&&... args) constexpr -> Ret {
+                using FunctionPointer = traits::function_pointer_t<F>;
 
-                if constexpr (std::is_void_v<Ret>)
-                    std::invoke(*target, std::forward<Invoked>(args)...);
-                else
-                    return std::invoke(*target, std::forward<Invoked>(args)...);
+                constexpr FunctionPointer stub = nullptr;
+
+                return [...args = DELEGATE_FWD(args), self]<class... Args>(Ret(*)(Args...)) constexpr
+                {
+                    const auto target = [](const Delegate* self) constexpr -> F*
+                    {
+                        if constexpr (std::is_const_v<F>)
+                            return static_cast<F*>(self->_constInstance);
+                        else
+                            return static_cast<F*>(self->_instance);
+                    }(self);
+
+                    if constexpr (std::is_void_v<Ret>)
+                        std::invoke(*target, args.forward<Args>()...);
+                    else
+                        return std::invoke(*target, args.forward<Args>()...);
+                }(stub);
             };
+
+            //constexpr auto proxy = []<class... Invoked>(const Delegate * self, Invoked&&... args) constexpr [[msvc::forceinline]] -> Ret
+            //{
+            //    const auto target = [](const Delegate* self) constexpr -> F*
+            //    {
+            //        if constexpr (std::is_const_v<F>)
+            //            return static_cast<F*>(self->_constInstance);
+            //            
+            //        return static_cast<F*>(self->_instance);
+            //    }(self);
+
+            //    if constexpr (std::is_void_v<Ret>)
+            //        std::invoke(*target, std::forward<Invoked>(args)...);
+            //    else
+            //        return std::invoke(*target, std::forward<Invoked>(args)...);
+            //};
 
             return getProxyFunction<F, decltype(proxy)>(invokedFunction, throwOnMismatch);
         }
@@ -2500,22 +2599,26 @@ namespace axl
             const bool throwOnMismatch
         ) -> AnyTarget
         {
-            constexpr auto proxy = []<class... Invoked>(const Delegate *, ReflectedArg<Invoked>&&... args) constexpr -> Ret {
-                using OriginalArgs = traits::function_args<F>;
-                using DecayedArgs  = traits::function_decayed_args<F>;
+            constexpr auto proxy = []<class... Invoked>(const Delegate*, ReflectedArg<Invoked>&&... args) constexpr -> Ret {
+                using FunctionPointer = traits::function_pointer_t<F>;
 
-                static_assert(std::is_same_v<std::tuple<Invoked...>, DecayedArgs>);
+                constexpr FunctionPointer stub = nullptr;
 
-                constexpr auto Indices = std::make_index_sequence<sizeof...(Invoked)>();
-
-                return [...args = DELEGATE_FWD(args)]<std::size_t... I>(std::index_sequence<I...>) constexpr
+                return [...args = DELEGATE_FWD(args)]<class... Args>(Ret(*)(Args...)) constexpr
                 {
                     if constexpr (std::is_void_v<Ret>)
-                        std::invoke(F{}, args.forward<std::tuple_element_t<I, OriginalArgs>>()...);
+                        std::invoke(F{}, args.forward<Args>()...);
                     else
-                        return std::invoke(F{}, args.forward<std::tuple_element_t<I, OriginalArgs>>()...);
-                }(Indices);
+                        return std::invoke(F{}, args.forward<Args>()...);
+                }(stub);
             };
+
+            //constexpr auto proxy = []<class... Invoked>(const Delegate *, Invoked&&... args) constexpr -> Ret {
+            //    if constexpr (std::is_void_v<Ret>)
+            //        std::invoke(F{}, std::forward<Invoked>(args)...);
+            //    else
+            //        return std::invoke(F{}, std::forward<Invoked>(args)...);
+            //};
 
             return getProxyFunction<F, decltype(proxy)>(invokedFunction, throwOnMismatch);
         }
@@ -2526,15 +2629,31 @@ namespace axl
             const bool throwOnMismatch
         ) -> AnyTarget
         {
-            constexpr auto proxy = []<class... Invoked>(const Delegate * self, Invoked&&... args) constexpr [[msvc::forceinline]] -> Ret
-            {
-                const auto& target = *std::launder(reinterpret_cast<const F*>(_storage));
+            constexpr auto proxy = []<class... Invoked>(const Delegate* self, ReflectedArg<Invoked>&&... args) constexpr -> Ret {
+                using FunctionPointer = traits::function_pointer_t<F>;
 
-                if constexpr (std::is_void_v<Ret>)
-                    std::invoke(target, std::forward<Invoked>(args)...);
-                else
-                    return std::invoke(target, std::forward<Invoked>(args)...);
+                constexpr FunctionPointer stub = nullptr;
+
+                return [...args = DELEGATE_FWD(args), self]<class... Args>(Ret(*)(Args...)) constexpr
+                {
+                    const auto& target = *std::launder(reinterpret_cast<const F*>(_storage));
+
+                    if constexpr (std::is_void_v<Ret>)
+                        std::invoke(target, args.forward<Args>()...);
+                    else
+                        return std::invoke(target, args.forward<Args>()...);
+                }(stub);
             };
+            
+            //constexpr auto proxy = []<class... Invoked>(const Delegate * self, Invoked&&... args) constexpr [[msvc::forceinline]] -> Ret
+            //{
+            //    const auto& target = *std::launder(reinterpret_cast<const F*>(_storage));
+
+            //    if constexpr (std::is_void_v<Ret>)
+            //        std::invoke(target, std::forward<Invoked>(args)...);
+            //    else
+            //        return std::invoke(target, std::forward<Invoked>(args)...);
+            //};
 
             return getProxyFunction<F, decltype(proxy)>(invokedFunction, throwOnMismatch);
         }
@@ -2545,15 +2664,24 @@ namespace axl
             const bool throwOnMismatch
         ) -> AnyTarget
         {
-            constexpr auto proxy = []<class... Invoked>(const Delegate* self, Invoked&&... args) constexpr [[msvc::forceinline]] -> Ret
-            {
+            constexpr auto proxy = []<class... Invoked>(const Delegate* self, ReflectedArg<Invoked>&&... args) constexpr -> Ret {
                 const auto target = reinterpret_cast<R(*)(Args...)>(self->_function);
 
                 if constexpr (std::is_void_v<Ret>)
-                    std::invoke(target, std::forward<Invoked>(args)...);
+                    std::invoke(target, args.forward<Args>()...);
                 else
-                    return std::invoke(target, std::forward<Invoked>(args)...);
+                    return std::invoke(target, args.forward<Args>()...);
             };
+
+            //constexpr auto proxy = []<class... Invoked>(const Delegate* self, Invoked&&... args) constexpr [[msvc::forceinline]] -> Ret
+            //{
+            //    const auto target = reinterpret_cast<R(*)(Args...)>(self->_function);
+
+            //    if constexpr (std::is_void_v<Ret>)
+            //        std::invoke(target, std::forward<Invoked>(args)...);
+            //    else
+            //        return std::invoke(target, std::forward<Invoked>(args)...);
+            //};
 
             return getProxyFunction<R(*)(Args...), decltype(proxy)>(invokedFunction, throwOnMismatch);
         }
@@ -3086,7 +3214,7 @@ namespace axl
 
     private:
         [[noreturn]]
-        static constexpr auto throwBadCall(const Delegate*, Args&&...) -> Ret
+        static constexpr DELEGATE_INLINE auto throwBadCall(const Delegate*, Args&&...) -> Ret
         {
             throw BadDelegateCall();
         }
