@@ -878,6 +878,7 @@ namespace axl
         }
     } // !namespace detail
 
+#pragma pack(push, 1)
     template<class T>
     struct ReflectedArg
     {
@@ -895,25 +896,39 @@ namespace axl
 
         template<class U>
         requires std::is_same_v<std::decay_t<T>, std::decay_t<U>>
-        constexpr DELEGATE_INLINE auto forward() const noexcept -> U
+        constexpr auto forward() const -> U
         {
-            if constexpr (!std::is_const_v<U>)
-            {
-                if (isConst) throw std::exception();
-                
-            }
             //if constexpr (!std::is_volatile_v<U>)
             //{
             //    if (isVolatile) throw std::exception();
             //}
 
-            else if constexpr (std::is_lvalue_reference_v<U>)
+            if constexpr (std::is_lvalue_reference_v<U>)
             {
-                return const_cast<U>(arg);
+                if constexpr (std::is_const_v<U>)
+                    return arg;
+                else
+                {
+                    // Undefined Behaviour, we must escape from it
+                    if (isConst) throw std::exception();
+                    
+                    return const_cast<U>(arg);
+                }
+            }
+            else if constexpr (std::is_move_constructible_v<T>)
+            {
+                if (isConst)
+                {
+                    // A copy will probably be made
+                    return std::move(arg);
+                }
+
+                return std::move(const_cast<T&>(arg));
             }
             else
             {
-                return std::move(arg);
+                // A copy is made here
+                return arg;
             }
         }
 
@@ -921,6 +936,7 @@ namespace axl
         bool isConst = false;
         // bool isVolatile = false;
     };
+#pragma pack(pop)
 
     namespace traits
     {
@@ -1349,42 +1365,6 @@ namespace axl
         }
     } // !namespace detail
 
-    enum ArgumentState : std::size_t
-    {
-        IsOriginal = 0x00,
-        IsLValue = 0x01,
-        IsRValue = 0x02,
-        IsVolatile = 0x04,
-        IsConst = 0x08,
-    };
-
-    template<ArgumentState State>
-    struct Argument
-    {
-        static constexpr bool is_original = static_cast<bool>(State & ArgumentState::IsOriginal);
-        static constexpr bool is_lvalue   = static_cast<bool>(State & ArgumentState::IsLValue);
-        static constexpr bool is_rvalue   = static_cast<bool>(State & ArgumentState::IsRValue);
-        static constexpr bool is_const    = static_cast<bool>(State & ArgumentState::IsConst);
-        static constexpr bool is_volatile = static_cast<bool>(State & ArgumentState::IsVolatile);
-    };
-
-    using FixedArgument = std::variant<
-        Argument<IsOriginal>,
-        Argument<static_cast<ArgumentState>(IsOriginal | IsConst)>,
-        Argument<static_cast<ArgumentState>(IsOriginal | IsVolatile)>,
-        Argument<static_cast<ArgumentState>(IsOriginal | IsConst | IsVolatile)>,
-
-        Argument<IsLValue>,
-        Argument<static_cast<ArgumentState>(IsLValue | IsConst)>,
-        Argument<static_cast<ArgumentState>(IsLValue | IsVolatile)>,
-        Argument<static_cast<ArgumentState>(IsLValue | IsConst | IsVolatile)>,
-
-        Argument<IsRValue>,
-        Argument<static_cast<ArgumentState>(IsRValue | IsConst)>,
-        Argument<static_cast<ArgumentState>(IsRValue | IsVolatile)>,
-        Argument<static_cast<ArgumentState>(IsRValue | IsConst | IsVolatile)>
-    >;
-
         struct FunctionArgument
         {
             template<class Arg>
@@ -1415,40 +1395,6 @@ namespace axl
                 , isRValue   { isRValue   }
                 , isLValue   { isLValue   }
             {}
-
-            operator FixedArgument() const noexcept
-            {
-                if (isLValue)
-                {
-                    if (isConst)
-                    {
-                        if (isVolatile)
-                            return FixedArgument(std::in_place_type<Argument<static_cast<ArgumentState>(IsLValue | IsConst | IsVolatile)>>);
-                        
-                        return FixedArgument(std::in_place_type<Argument<static_cast<ArgumentState>(IsLValue | IsConst)>>);
-                    }
-                    return FixedArgument(std::in_place_type<Argument<static_cast<ArgumentState>(IsLValue)>>);
-                }
-                if (isRValue)
-                {
-                    if (isConst)
-                    {
-                        if (isVolatile)
-                            return FixedArgument(std::in_place_type<Argument<static_cast<ArgumentState>(IsRValue | IsConst | IsVolatile)>>);
-
-                        return FixedArgument(std::in_place_type<Argument<static_cast<ArgumentState>(IsRValue | IsConst)>>);
-                    }
-                    return FixedArgument(std::in_place_type<Argument<static_cast<ArgumentState>(IsRValue)>>);
-                }
-                if (isConst)
-                {
-                    if (isVolatile)
-                        return FixedArgument(std::in_place_type<Argument<static_cast<ArgumentState>(IsOriginal | IsConst | IsVolatile)>>);
-
-                    return FixedArgument(std::in_place_type<Argument<static_cast<ArgumentState>(IsOriginal | IsConst)>>);
-                }
-                return FixedArgument(std::in_place_type<Argument<static_cast<ArgumentState>(IsOriginal)>>);
-            }
 
             bool isConst = false;
             bool isVolatile = false;
@@ -1499,27 +1445,6 @@ namespace axl
 
             template<std::size_t index>
             constexpr auto nthArgument() const noexcept -> FunctionArgument
-            {
-                std::size_t offset = _representation.find_last_of('(');
-
-                for (std::size_t separators = 0; offset != std::string_view::npos;)
-                {
-                    offset++;
-
-                    if (separators++ == index)
-                    {
-                        const std::size_t end = _representation.find_first_of(",)", offset);
-
-                        return _representation.substr(offset, end - offset);
-                    }
-
-                    offset = _representation.find(',', offset);
-                }
-
-                return {};
-            }
-
-            constexpr auto _nthArgument(std::size_t index) const noexcept -> std::string_view
             {
                 std::size_t offset = _representation.find_last_of('(');
 
@@ -1740,8 +1665,6 @@ namespace axl
             template<class OriginalArg>
             static constexpr bool isArgumentCompatibleWith(FunctionArgument invoked) noexcept
             {
-                constexpr auto test = detail::typeName<void(*)(OriginalArg)>();
-
                 if constexpr (std::is_lvalue_reference_v<OriginalArg>)
                 {
                     if constexpr (std::is_const_v<std::remove_reference_t<OriginalArg>>)
@@ -1752,8 +1675,7 @@ namespace axl
 
                     return invoked.isLValue && !invoked.isConst && !invoked.isVolatile;
                 }
-
-                if constexpr (std::is_rvalue_reference_v<OriginalArg>)
+                else if constexpr (std::is_rvalue_reference_v<OriginalArg>)
                 {
                     if constexpr (std::is_const_v<std::remove_reference_t<OriginalArg>>)
                         return !invoked.isLValue && !invoked.isVolatile;
@@ -1763,14 +1685,12 @@ namespace axl
 
                     return !invoked.isLValue && !invoked.isConst && !invoked.isVolatile;
                 }
-
-                if constexpr (!std::is_move_constructible_v<OriginalArg>)
+                else if constexpr (!std::is_move_constructible_v<OriginalArg>)
                     return !invoked.isRValue;
-
-                if constexpr (!std::is_copy_constructible_v<OriginalArg>)
+                else if constexpr (!std::is_copy_constructible_v<OriginalArg>)
                     return invoked.isLValue || invoked.isRValue;
-
-                return true;
+                else
+                    return true;
             }
             
         public:
@@ -3166,7 +3086,7 @@ namespace axl
 
     private:
         [[noreturn]]
-        static constexpr DELEGATE_INLINE auto throwBadCall(const Delegate*, Args&&...) -> Ret
+        static constexpr auto throwBadCall(const Delegate*, Args&&...) -> Ret
         {
             throw BadDelegateCall();
         }

@@ -31,6 +31,6 @@ add_executable(test WIN32
 # target_link_libraries(test "Delegate")
 
 target_compile_features(test PRIVATE cxx_std_20)
-target_compile_options(test PRIVATE /Wall /d2cgsummary /Bt /sdl)
+target_compile_options(test PRIVATE /W4 /d2cgsummary /Bt /sdl)
 target_include_directories(test PRIVATE include)
 set_target_properties(test PROPERTIES LINK_FLAGS /SUBSYSTEM:CONSOLE)
